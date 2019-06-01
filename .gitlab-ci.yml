@@ -8,14 +8,7 @@ test:
   script:
     - apk add --no-cache bash
     - ./cicd/run_coverage_docker.sh
+    - ./cicd/run_analyze_docker.sh
   artifacts:
     paths:
       - results/
-
-analyze:
-  stage: test
-  script:
-    - apk add --no-cache bash
-    - ./cicd/run_analyze_docker.sh
-  dependencies:
-    - test
