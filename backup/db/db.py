@@ -1,6 +1,6 @@
 from peewee import SqliteDatabase
 
-from db.domain import database, BackupsEntry, BackupEntry, DiscEntry, ArchiveEntry, ArchiveFileMap, FileEntry, \
+from backup.db.domain import database, BackupsEntry, BackupEntry, DiscEntry, ArchiveEntry, ArchiveFileMap, FileEntry, \
     BackupFileMap
 
 

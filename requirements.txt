@@ -1,1 +1,3 @@
 peewee
+unittest-xml-reporting
+coverage

@@ -2,5 +2,6 @@
 
 PYTHON=./venv/bin/python3
 
-${PYTHON} -m unittest discover
+rm -rf ./results/*
+${PYTHON} -m xmlrunner discover -v -o "./results/"
 

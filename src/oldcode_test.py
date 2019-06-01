@@ -1,4 +1,4 @@
-import io
+import core
 import os
 import unittest
 import tempfile
@@ -58,7 +58,7 @@ class OldCodeTest(unittest.TestCase):
 
     def create_file(self, file, length):
         with open(file, "wb") as f:
-            b = io.BufferedWriter(f)
+            b = core.BufferedWriter(f)
             for i in range(length):
                 b.write((i % 255).to_bytes(1, byteorder='big'))
 

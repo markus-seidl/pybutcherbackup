@@ -1,11 +1,7 @@
 from unittest import TestCase, main
 import tempfile
-import sys
-import os
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from backup.io.luke import LukeFilewalker
+from backup.core.luke import LukeFilewalker
 
 
 class TestLukeFilewalker(TestCase):

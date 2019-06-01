@@ -1,11 +1,11 @@
 import tempfile
-import unittest
+from unittest import TestCase, main
 
-from db.domain import *
-from db.db import DatabaseManager
+from backup.db.domain import *
+from backup.db.db import DatabaseManager
 
 
-class DomainTest(unittest.TestCase):
+class DomainTest(TestCase):
     def test_basic_store_load(self):
         with tempfile.NamedTemporaryFile() as tmp_filename:
             db_manager = DatabaseManager(tmp_filename.name)
@@ -80,3 +80,7 @@ class DomainTest(unittest.TestCase):
                                      .join(FileEntry))
 
                 assert len(files_for_archive) == 2
+
+
+if __name__ == '__main__':
+    main()

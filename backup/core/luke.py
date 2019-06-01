@@ -14,10 +14,16 @@ class FileEntryDTO:
         """SHA256 hash before backup."""
         self.modified_time = None
         """Modification time at time of backup"""
-        self.relative_path = None
+        self.relative_file = None
         """The relative path of this file to the specified backup root."""
         self.size = -1
         """Original size in bytes."""
+
+    def original_file(self):
+        return self.original_filepath + os.sep + self.original_filename
+
+    def __repr__(self):
+        return "<relative_file='%s'>" % self.relative_file
 
 
 class LukeFilewalker:
@@ -53,7 +59,7 @@ class LukeFilewalker:
             if calculate_sha:
                 e.sha_sum = self.calculate_hash(f)
             e.modified_time = os.path.getmtime(f)
-            e.relative_path = self.find_relative_path(directory, f)
+            e.relative_file = self.find_relative_path(directory, f)
 
             e.size = os.stat(f).st_size
 
