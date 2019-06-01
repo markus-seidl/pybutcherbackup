@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 
-DOCKER=docker
+COVERAGE=coverage3
+SONAR_SCANNER=sonar-scanner
 
-${DOCKER} build cicd -f cicd/Dockerfile_sonar --tag pybutcherbackup-sonar
-
-${DOCKER} run --rm --name pybutcherbackup-sonar -e SONAR_LOGIN=${SONAR_LOGIN} -v "$PWD":/usr/src/myapp -w /usr/src/myapp pybutcherbackup-sonar  "./cicd/run_analyze.sh"
+${SONAR_SCANNER} \
+  -Dsonar.projectKey=pybutcherbackup \
+  -Dsonar.sources=. \
+  -Dsonar.host.url=https://sonar.markus-seidl.de \
+  -Dsonar.login=${SONAR_LOGIN} \
+  -Dsonar.python.coverage.reportPaths="results/*coverage*.xml" \
+  -Dsonar.python.xunit.reportPath="results/TEST-*.xml" \
+  -Dsonar.test.exclusions="./tests/*"

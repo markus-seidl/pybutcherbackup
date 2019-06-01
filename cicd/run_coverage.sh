@@ -1,18 +1,12 @@
 #!/usr/bin/env bash
 
-# Assumes this script runs in the root directory directly.
+set -xe
 
-# source ./venv/bin/activate
+DOCKER=docker
 
-COVERAGE=coverage3
+cp requirements.txt cicd/requirements.txt
+${DOCKER} build cicd -f cicd/Dockerfile_python --tag pybutcherbackup-python
+rm cicd/requirements.txt
 
-cd ..
-
-mkdir "./results"
-rm -rf ./results/*
-
-${COVERAGE} erase
-${COVERAGE} run --source=backup -m xmlrunner discover -v -o "./results/"
-${COVERAGE} report
-${COVERAGE} xml -i -o "./results/coverage.xml"
+${DOCKER} run --rm --name pybutcherbackup-python -v "$PWD":/usr/src/myapp -w /usr/src/myapp pybutcherbackup-python  "./cicd/run_coverage.sh"
 
