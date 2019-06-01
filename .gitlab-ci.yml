@@ -1,0 +1,14 @@
+image: docker:latest
+
+services:
+  - docker:dind
+
+test:
+  stage: test
+  script:
+    - ./cicd/run_analyze_docker.sh
+
+analyze:
+  stage: test
+  script:
+    - ./cicd/run_coverage_docker.sh

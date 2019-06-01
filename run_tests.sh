@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source ./venv/bin/activate
+
 PYTHON=./venv/bin/python3
 
 rm -rf ./results/*
