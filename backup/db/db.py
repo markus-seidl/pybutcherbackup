@@ -1,7 +1,9 @@
 from peewee import SqliteDatabase
 
-from backup.db.domain import database, BackupsEntry, BackupEntry, DiscEntry, ArchiveEntry, ArchiveFileMap, FileEntry, \
-    BackupFileMap
+from backup.db.domain import *
+from enum import Enum
+
+from core.luke import FileEntryDTO
 
 
 class BackupDatabaseWriter:
@@ -13,6 +15,16 @@ class BackupDatabaseWriter:
         """Number of registered archives."""
         self.disc_number = 0
         """Number of registered discs."""
+
+    def create_file_from_dto(self, file: FileEntryDTO) -> FileEntry:
+        return self.create_file(
+            file.original_filepath,
+            file.original_filename,
+            file.sha_sum,
+            file.modified_time,
+            file.relative_file,
+            file.size
+        )
 
     def create_file(self, original_filepath,
                     original_filename,
@@ -84,7 +96,12 @@ class BackupDatabaseReader:
     pass
 
 
-# Note that the database manager is static because of the static proxy to peewee.database
+class BackupType(Enum):
+    FULL = "FULL"
+    DIFFERENTIAL = "DIFF"
+
+
+# Note that the database manager is static because of the "static" proxy to peewee.database
 class DatabaseManager:
     def __init__(self, file_name):
         self.file_name = file_name
@@ -108,13 +125,14 @@ class DatabaseManager:
     def backups_root(self) -> BackupsEntry:
         s = BackupsEntry.select()
         if len(s) == 0:
-            pass
+            return BackupsEntry.create()
         else:
             return s.first()
 
-    def create_backup(self) -> BackupDatabaseWriter:
+    def create_backup(self, backup_type: BackupType) -> BackupDatabaseWriter:
         backup = BackupEntry.create(
-            backups=self.backups_root()
+            backups=self.backups_root(),
+            type=backup_type.name
         )
 
         return BackupDatabaseWriter(backup)

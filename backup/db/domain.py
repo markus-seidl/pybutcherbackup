@@ -19,6 +19,8 @@ class BackupsEntry(BaseModel):
 class BackupEntry(BaseModel):
     created = DateTimeField(default=datetime.datetime.now)
     backups = ForeignKeyField(BackupsEntry, backref='backups')
+    type = TextField()
+    """Backup type (e.g. full, diff, ...)"""
 
     # def __init__(self, *args, **kwargs):
     # self.created = datetime.datetime.now()
@@ -64,14 +66,14 @@ class ArchiveEntry(BaseModel):
 
 
 class FileEntry(BaseModel):
-    original_filepath = CharField()
-    original_filename = CharField()
-    sha_sum = CharField()
+    original_filepath = TextField()
+    original_filename = TextField()
+    sha_sum = TextField()
     modified_time = DateTimeField()
     size = IntegerField()
     """Size in bytes"""
     part_number = IntegerField(null=True)
-    relative_path = CharField()
+    relative_path = TextField()
 
     # def __init__(self):
     #     self.archives = list()
