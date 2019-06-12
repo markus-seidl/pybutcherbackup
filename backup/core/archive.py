@@ -140,6 +140,6 @@ class TarArchiver(Archiver):
         with tarfile.open(output_archive, self.open_spec) as tar:
             for file in input_files:
                 src_path = file.original_file()
-                bck_path = file.relative_file
+                bck_path = file.relative_path
 
                 tar.add(src_path, arcname=bck_path)
