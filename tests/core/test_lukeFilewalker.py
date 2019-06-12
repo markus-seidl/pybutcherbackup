@@ -27,7 +27,7 @@ class TestLukeFilewalker(TestCase):
 
             f = files[0]
             assert f.original_filename == 'a'
-            assert f.original_filepath == temp_dir
+            assert f.original_path == temp_dir
             assert f.sha_sum == "c7be1ed902fb8dd4d48997c6452f5d7e509fbcdbe2808b16bcf4edce4c07d14e"
 
 

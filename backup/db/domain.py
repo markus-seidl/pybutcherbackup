@@ -69,7 +69,7 @@ class FileEntry(BaseModel):
     original_filepath = TextField()
     original_filename = TextField()
     sha_sum = TextField()
-    modified_time = DateTimeField()
+    modified_time = BigIntegerField()
     size = IntegerField()
     """Size in bytes"""
     part_number = IntegerField(null=True)
@@ -86,7 +86,7 @@ class FileEntry(BaseModel):
 
 
 class ArchiveFileMap(BaseModel):
-    archive = ForeignKeyField(ArchiveEntry)
+    archive = ForeignKeyField(ArchiveEntry, backref='files')
     file = ForeignKeyField(FileEntry)
 
     class Meta:

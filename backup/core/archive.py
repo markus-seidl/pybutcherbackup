@@ -132,7 +132,7 @@ class TarArchiver(Archiver):
 
     def compress_file(self, input_file, file_entry: FileEntryDTO, output_archive):
         with tarfile.open(output_archive, self.open_spec) as tar:
-            bck_path = file_entry.relative_file
+            bck_path = file_entry.relative_path
 
             tar.add(input_file, arcname=bck_path)
 

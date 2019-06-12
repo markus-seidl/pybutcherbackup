@@ -1,9 +1,11 @@
+import os
+
 from peewee import SqliteDatabase
 
 from backup.db.domain import *
 from enum import Enum
 
-from core.luke import FileEntryDTO
+from backup.core.luke import FileEntryDTO
 
 
 class BackupDatabaseWriter:
@@ -18,26 +20,28 @@ class BackupDatabaseWriter:
 
     def create_file_from_dto(self, file: FileEntryDTO) -> FileEntry:
         return self.create_file(
-            file.original_filepath,
+            file.original_path,
             file.original_filename,
             file.sha_sum,
             file.modified_time,
-            file.relative_file,
+            file.relative_path,
             file.size
         )
 
-    def create_file(self, original_filepath,
+    def create_file(self, original_path,
                     original_filename,
                     sha_sum,
                     modified_time,
                     relative_path,
                     size) -> FileEntry:
+        """Creates the database representation and automagically registers the file to the current backup."""
         # Prevent duplication of files
-        if relative_path in self.files:
+        original_file = original_path + os.sep + original_filename
+        if original_file in self.files:
             return self.get_file(relative_path)
 
         file = FileEntry.create(
-            original_filepath=original_filepath,
+            original_filepath=original_path,
             original_filename=original_filename,
             sha_sum=sha_sum,
             modified_time=modified_time,
@@ -47,14 +51,8 @@ class BackupDatabaseWriter:
             backup=None
         )
 
-        self.files[relative_path] = file
-
-        # automagically add this file to the backup
-        # TODO is this ok or should this be in another function?
-        BackupFileMap.create(
-            backup=self.backup_root,
-            file=file
-        )
+        self.files[original_file] = file
+        self.map_file_to_backup(file)
 
         return file
 
@@ -79,13 +77,13 @@ class BackupDatabaseWriter:
             disc=for_disc
         )
 
-    def map_file_to_archive(self, file, archive):
+    def map_file_to_archive(self, file, archive) -> ArchiveFileMap:
         return ArchiveFileMap.create(
             archive=archive,
             file=file
         )
 
-    def map_file_to_backup(self, file, backup):
+    def map_file_to_backup(self, file):
         return BackupFileMap.create(
             backup=self.backup_root,
             file=file
@@ -107,6 +105,9 @@ class DatabaseManager:
         self.file_name = file_name
         self.database = database
         self.open_database(file_name)
+
+    def transaction(self):
+        return self.database.transaction()
 
     def open_database(self, file_name):
         database.initialize(SqliteDatabase(file_name, pragmas={'foreign_keys': 1}))

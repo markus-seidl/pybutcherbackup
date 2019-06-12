@@ -28,9 +28,9 @@ class TestTarArchiver(TestCase):
                 relative_path = "/rel/ative_path"
 
                 file_entry = FileEntryDTO()
-                file_entry.original_filepath = src_file.name
+                file_entry.original_path = src_file.name
                 file_entry.original_filename = ""
-                file_entry.relative_file = relative_path
+                file_entry.relative_path = relative_path
 
                 ta.compress_file(src_file.name, file_entry, archive_file.name)
 
@@ -57,9 +57,9 @@ class TestTarArchiver(TestCase):
                 relative_path = "/rel/ative_path"
 
                 file_entry = FileEntryDTO()
-                file_entry.original_filepath = os.path.split(src_file.name)[0]
+                file_entry.original_path = os.path.split(src_file.name)[0]
                 file_entry.original_filename = os.path.split(src_file.name)[1]
-                file_entry.relative_file = relative_path
+                file_entry.relative_path = relative_path
 
                 ta.compress_files([file_entry], archive_file.name)
 
