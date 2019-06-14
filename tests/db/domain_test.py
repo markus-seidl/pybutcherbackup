@@ -14,7 +14,8 @@ class DomainTest(TestCase):
                 backups = BackupsEntry.create()
 
                 backup = BackupEntry.create(
-                    backups=backups
+                    backups=backups,
+                    type="TEST"
                 )
 
                 disc = DiscEntry.create(

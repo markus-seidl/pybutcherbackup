@@ -21,6 +21,7 @@ class BackupEntry(BaseModel):
     backups = ForeignKeyField(BackupsEntry, backref='backups')
     type = TextField()
     """Backup type (e.g. full, diff, ...)"""
+    # TODO State (started, completed)
 
     # def __init__(self, *args, **kwargs):
     # self.created = datetime.datetime.now()
@@ -74,6 +75,12 @@ class FileEntry(BaseModel):
     """Size in bytes"""
     part_number = IntegerField(null=True)
     relative_path = TextField()
+
+    def is_deleted(self):
+        return self.size == -1
+
+    def set_deleted(self):
+        self.size = -1
 
     # def __init__(self):
     #     self.archives = list()

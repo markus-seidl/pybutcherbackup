@@ -91,7 +91,13 @@ class BackupDatabaseWriter:
 
 
 class BackupDatabaseReader:
-    pass
+
+    @staticmethod
+    def create_reader_from_backup(backup_root: BackupsEntry, backup_start):
+        for backup in backup_root.backups.order_by(BackupEntry.created):
+            print(backup)
+
+        return None
 
 
 class BackupType(Enum):
@@ -137,3 +143,6 @@ class DatabaseManager:
         )
 
         return BackupDatabaseWriter(backup)
+
+    def read_backup(self, backup) -> BackupDatabaseReader:
+        return BackupDatabaseReader.create_reader_from_backup(self.backups_root(), backup)
