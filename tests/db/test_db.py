@@ -15,17 +15,17 @@ class DomainTest(unittest.TestCase):
             dto_file01_02_01 = self.create_dummy_file(2)
 
             # write backup
-            with db_manager.transaction() as txn:
+            with db_manager.transaction():
                 backup_manager = db_manager.create_backup(BackupType.FULL)
 
                 disc01 = backup_manager.create_disc()
 
                 archive01_01 = backup_manager.create_archive(disc01)
-                file01_01_01 = backup_manager.create_file_from_dto(dto_file01_01_01)
+                file01_01_01 = backup_manager.create_file_from_dto(dto_file01_01_01, FileState.NEW)
                 backup_manager.map_file_to_archive(file01_01_01, archive01_01)
 
                 archive01_02 = backup_manager.create_archive(disc01)
-                file01_02_01 = backup_manager.create_file_from_dto(dto_file01_02_01)
+                file01_02_01 = backup_manager.create_file_from_dto(dto_file01_02_01, FileState.NEW)
                 backup_manager.map_file_to_archive(file01_02_01, archive01_02)
 
             # validate on disk storage
@@ -60,11 +60,11 @@ class DomainTest(unittest.TestCase):
                 disc01 = backup_manager.create_disc()
 
                 archive01_01 = backup_manager.create_archive(disc01)
-                file01_01_01 = backup_manager.create_file_from_dto(dto_file01_01_01)
+                file01_01_01 = backup_manager.create_file_from_dto(dto_file01_01_01, FileState.NEW)
                 backup_manager.map_file_to_archive(file01_01_01, archive01_01)
 
                 archive01_02 = backup_manager.create_archive(disc01)
-                file01_02_01 = backup_manager.create_file_from_dto(dto_file01_02_01)
+                file01_02_01 = backup_manager.create_file_from_dto(dto_file01_02_01, FileState.NEW)
                 backup_manager.map_file_to_archive(file01_02_01, archive01_02)
 
             # File 1 has been deleted
@@ -74,13 +74,13 @@ class DomainTest(unittest.TestCase):
                 disc01 = backup_manager.create_disc()
 
                 archive01_01 = backup_manager.create_archive(disc01)
-                file01_01_01 = backup_manager.create_file_from_dto(dto_file01_01_01)
+                file01_01_01 = backup_manager.create_file_from_dto(dto_file01_01_01, FileState.NEW)
                 file01_01_01.set_deleted()
                 file01_01_01.save()
                 backup_manager.map_file_to_archive(file01_01_01, archive01_01)
 
                 archive01_02 = backup_manager.create_archive(disc01)
-                file01_02_01 = backup_manager.create_file_from_dto(dto_file01_02_01)
+                file01_02_01 = backup_manager.create_file_from_dto(dto_file01_02_01, FileState.NEW)
                 backup_manager.map_file_to_archive(file01_02_01, archive01_02)
 
             db_manager.read_backup(None)

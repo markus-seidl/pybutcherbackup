@@ -88,7 +88,7 @@ class TestTarArchiver(TestCase):
 
                 i = 0
                 for backup_package in ta.archive_package_iter():
-                    print(backup_package)
+                    # print(backup_package)
                     if backup_package.file_package[0].original_filename == "source_1" \
                             and backup_package.part_number == 0:  # part 1 of source_1
 

@@ -18,14 +18,15 @@ class BackupDatabaseWriter:
         self.disc_number = 0
         """Number of registered discs."""
 
-    def create_file_from_dto(self, file: FileEntryDTO) -> FileEntry:
+    def create_file_from_dto(self, file: FileEntryDTO, state: FileState) -> FileEntry:
         return self.create_file(
             file.original_path,
             file.original_filename,
             file.sha_sum,
             file.modified_time,
             file.relative_path,
-            file.size
+            file.size,
+            state
         )
 
     def create_file(self, original_path,
@@ -33,7 +34,7 @@ class BackupDatabaseWriter:
                     sha_sum,
                     modified_time,
                     relative_path,
-                    size) -> FileEntry:
+                    size, state: FileState) -> FileEntry:
         """Creates the database representation and automagically registers the file to the current backup."""
         # Prevent duplication of files
         original_file = original_path + os.sep + original_filename
@@ -52,7 +53,7 @@ class BackupDatabaseWriter:
         )
 
         self.files[original_file] = file
-        self.map_file_to_backup(file)
+        self.map_file_to_backup(file, state)
 
         return file
 
@@ -83,10 +84,11 @@ class BackupDatabaseWriter:
             file=file
         )
 
-    def map_file_to_backup(self, file):
+    def map_file_to_backup(self, file, state: FileState):
         return BackupFileMap.create(
             backup=self.backup_root,
-            file=file
+            file=file,
+            state=state
         )
 
 
@@ -100,13 +102,8 @@ class BackupDatabaseReader:
         return None
 
 
-class BackupType(Enum):
-    FULL = "FULL"
-    DIFFERENTIAL = "DIFF"
-
-
-# Note that the database manager is static because of the "static" proxy to peewee.database
 class DatabaseManager:
+    # Note that the database manager is static because of the "static" proxy to peewee.database
     def __init__(self, file_name):
         self.file_name = file_name
         self.database = database
@@ -139,7 +136,7 @@ class DatabaseManager:
     def create_backup(self, backup_type: BackupType) -> BackupDatabaseWriter:
         backup = BackupEntry.create(
             backups=self.backups_root(),
-            type=backup_type.name
+            type=backup_type
         )
 
         return BackupDatabaseWriter(backup)

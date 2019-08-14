@@ -15,7 +15,7 @@ class DomainTest(TestCase):
 
                 backup = BackupEntry.create(
                     backups=backups,
-                    type="TEST"
+                    type=BackupType.FULL
                 )
 
                 disc = DiscEntry.create(
@@ -59,12 +59,14 @@ class DomainTest(TestCase):
 
                 BackupFileMap.create(
                     backup=backup,
-                    file=file01
+                    file=file01,
+                    state=FileState.NEW
                 )
 
                 BackupFileMap.create(
                     backup=backup,
-                    file=file02
+                    file=file02,
+                    state=FileState.NEW
                 )
 
                 assert BackupsEntry.select().count() == 1

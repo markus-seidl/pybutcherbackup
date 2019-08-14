@@ -1,0 +1,17 @@
+@startuml
+
+BackupsEntry  "1" *-- "n" BackupEntry
+BackupEntry "1" *-- "n" DiscEntry
+DiscEntry "1" *-- "n" ArchiveEntry
+
+ArchiveEntry "1" *-- "n" ArchiveFileMap
+ArchiveFileMap "1" *-- "n" FileEntry
+
+BackupEntry "1" *-- "n" BackupFileMap
+BackupFileMap "1" *-- "n" FileEntry
+
+class BackupFileMap {
+    state : [New, Updated, Deleted, Identical]
+}
+
+@enduml
