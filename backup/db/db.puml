@@ -7,8 +7,8 @@ DiscEntry "1" *-- "n" ArchiveEntry
 ArchiveEntry "1" *-- "n" ArchiveFileMap
 ArchiveFileMap "1" *-- "n" FileEntry
 
-BackupEntry "1" *-- "n" BackupFileMap
-BackupFileMap "1" *-- "n" FileEntry
+BackupEntry "1: all_files" *-- "n" BackupFileMap
+BackupFileMap "1: file" *-- "n" FileEntry
 
 class BackupFileMap {
     state : [New, Updated, Deleted, Identical]

@@ -2,7 +2,7 @@ import os
 import tempfile
 from unittest import TestCase, main
 from unittest.mock import Mock
-from backup.core.archive import Archiver, FileBulker
+from backup.core.archive import ArchiveManager, FileBulker, DefaultArchiver
 
 
 class TestArchiver(TestCase):
@@ -19,7 +19,7 @@ class TestArchiver(TestCase):
             file_bulker = Mock()
             file_bulker.max_size = single_size
 
-            a = Archiver(file_bulker, None)
+            a = ArchiveManager(file_bulker, None, Mock())
 
             count = 0
             for split in a.split_file(tf.name, 1):
@@ -43,7 +43,7 @@ class TestArchiver(TestCase):
             file_bulker = Mock()
             file_bulker.max_size = single_size
 
-            a = Archiver(file_bulker, None)
+            a = ArchiveManager(file_bulker, None, Mock())
 
             count = 0
             for split in a.split_file(tf.name, 1):

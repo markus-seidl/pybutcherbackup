@@ -96,10 +96,31 @@ class BackupDatabaseReader:
 
     @staticmethod
     def create_reader_from_backup(backup_root: BackupsEntry, backup_start):
-        for backup in backup_root.backups.order_by(BackupEntry.created):
-            print(backup)
+        backups = list()
 
-        return None
+        for backup in backup_root.backups.order_by(BackupEntry.created.desc()):
+            backups.append(backup)
+            if backup.type == BackupType.FULL:
+                break
+
+        backups.reverse()
+        # generate full file list
+        files = dict()
+        for backup in backups:
+            for backup_file_map in backup.all_files.select():
+                if backup_file_map.state in (FileState.NEW, FileState.IDENTICAL, FileState.UPDATED):
+                    files[backup_file_map.file.original_file] = backup_file_map.file
+                elif backup_file_map.state == FileState.DELETED:
+                    del files[backup_file_map.file.original_file]
+
+        return BackupDatabaseReader(files)
+
+    def __init__(self, all_files):
+        self._all_files = all_files
+
+    @property
+    def all_files(self):
+        return dict(self._all_files)
 
 
 class DatabaseManager:
@@ -142,4 +163,9 @@ class DatabaseManager:
         return BackupDatabaseWriter(backup)
 
     def read_backup(self, backup) -> BackupDatabaseReader:
+        """
+
+        :param backup: Backup to start from (not implemented), None to start from the latest
+        :return:
+        """
         return BackupDatabaseReader.create_reader_from_backup(self.backups_root(), backup)

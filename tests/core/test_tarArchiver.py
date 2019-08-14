@@ -3,11 +3,11 @@ import tarfile
 import tempfile
 from unittest import TestCase, main
 from unittest.mock import Mock
-from backup.core.archive import TarArchiver, FileBulker
+from backup.core.archive import ArchiveManager, DefaultArchiver, FileBulker
 from backup.core.luke import FileEntryDTO, LukeFilewalker
 
 
-class TestTarArchiver(TestCase):
+class TestDefaultArchiver(TestCase):
     def create_test_file(self, name, size=14):
         with open(name, 'w') as temp:
             for i in range(size):
@@ -20,7 +20,7 @@ class TestTarArchiver(TestCase):
 
             compression_type = 'bz2'
 
-            ta = TarArchiver(file_bulker, archive_file.name, 'w:' + compression_type)
+            tar = DefaultArchiver('w:' + compression_type)
 
             with tempfile.NamedTemporaryFile() as src_file:
                 self.create_test_file(src_file.name)
@@ -32,7 +32,7 @@ class TestTarArchiver(TestCase):
                 file_entry.original_filename = ""
                 file_entry.relative_path = relative_path
 
-                ta.compress_file(src_file.name, file_entry, archive_file.name)
+                tar.compress_file(src_file.name, file_entry, archive_file.name)
 
                 with tarfile.open(archive_file.name, 'r:' + compression_type) as tar:
                     # tar.extract(relative_path)
@@ -49,7 +49,7 @@ class TestTarArchiver(TestCase):
 
             compression_type = 'bz2'
 
-            ta = TarArchiver(file_bulker, archive_file.name, 'w:' + compression_type)
+            tar = DefaultArchiver('w:' + compression_type)
 
             with tempfile.NamedTemporaryFile() as src_file:
                 self.create_test_file(src_file.name)
@@ -61,7 +61,7 @@ class TestTarArchiver(TestCase):
                 file_entry.original_filename = os.path.split(src_file.name)[1]
                 file_entry.relative_path = relative_path
 
-                ta.compress_files([file_entry], archive_file.name)
+                tar.compress_files([file_entry], archive_file.name)
 
                 with tarfile.open(archive_file.name, 'r:' + compression_type) as tar:
                     # tar.extract(relative_path)
@@ -70,6 +70,23 @@ class TestTarArchiver(TestCase):
                     assert file_info.name == relative_path[1:]
 
                     assert tar.next() is None
+
+    def test_encrypt_decrypt(self):
+        with tempfile.NamedTemporaryFile() as source_file:
+            with tempfile.NamedTemporaryFile() as encrypt_file:
+                with tempfile.NamedTemporaryFile() as decrypt_file:
+                    tar = DefaultArchiver()
+
+                    self.create_test_file(source_file.name, 20)
+                    key = "0123456789123456"
+
+                    tar.encrypt_file(key, source_file.name, encrypt_file.name)
+                    tar.decrypt_file(key, encrypt_file.name, decrypt_file.name)
+
+                    assert os.path.getsize(decrypt_file.name) == os.path.getsize(source_file.name)
+
+                    with open(source_file.name, 'r') as f:
+                        assert 'aaaaaaaaaaaaaaaaaaaa' == f.readline()
 
     def test_archive_package_iter(self):
         with tempfile.NamedTemporaryFile() as archive_file:
@@ -84,10 +101,11 @@ class TestTarArchiver(TestCase):
 
                 compression_type = 'bz2'
 
-                ta = TarArchiver(file_bulker, archive_file.name, 'w:' + compression_type)
+                tar = DefaultArchiver('w:' + compression_type)
+                am = ArchiveManager(file_bulker, archive_file.name, tar)
 
                 i = 0
-                for backup_package in ta.archive_package_iter():
+                for backup_package in am.archive_package_iter():
                     # print(backup_package)
                     if backup_package.file_package[0].original_filename == "source_1" \
                             and backup_package.part_number == 0:  # part 1 of source_1

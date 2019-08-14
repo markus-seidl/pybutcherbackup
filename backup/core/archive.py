@@ -5,6 +5,10 @@ import dataclasses
 from backup.core.luke import FileEntryDTO
 import tempfile
 
+import struct
+import random
+from Crypto.Cipher import AES
+
 
 class FileBulker:
     """Bulks the list of files retrieved from the filewalker, into packages of size max_size."""
@@ -43,17 +47,95 @@ class FileBulker:
         return file_dto.size
 
 
-class Archiver:
+class DefaultArchiver:
+    """
+    Compresses files into tar files.
+
+    - 'w:gz'	Open for gzip compressed writing.
+    - 'w:bz2'	Open for bzip2 compressed writing.
+    - 'w:xz'	Open for lzma compressed writing.
+    """
+
+    def __init__(self, open_spec='w:bz2'):
+        self.open_spec = open_spec
+
+    def compress_file(self, input_file, file_entry: FileEntryDTO, output_archive):
+        with tarfile.open(output_archive, self.open_spec) as tar:
+            bck_path = file_entry.relative_path
+
+            tar.add(input_file, arcname=bck_path)
+
+    def compress_files(self, input_files: [FileEntryDTO], output_archive):
+        with tarfile.open(output_archive, self.open_spec) as tar:
+            for file in input_files:
+                src_path = file.original_file()
+                bck_path = file.relative_path
+
+                tar.add(src_path, arcname=bck_path)
+
+    def encrypt_file(self, key, in_filename, out_filename, chunksize=64 * 1024):  # cython could improve performance?
+        """ Encrypts a file using AES (CBC mode) with the
+            given key.
+            From: https://github.com/eliben/code-for-blog/blob/master/2010/aes-encrypt-pycrypto/pycrypto_file.py
+            key:
+                The encryption key - a bytes object that must be
+                either 16, 24 or 32 bytes long. Longer keys
+                are more secure.
+            chunksize:
+                chunksize must be divisible by 16.
+        """
+        iv = os.urandom(16)
+        encryptor = AES.new(key, AES.MODE_CBC, iv)
+        filesize = os.path.getsize(in_filename)
+
+        with open(in_filename, 'rb') as infile:
+            with open(out_filename, 'wb') as outfile:
+                outfile.write(struct.pack('<Q', filesize))
+                outfile.write(iv)
+
+                while True:
+                    chunk = infile.read(chunksize)
+                    if len(chunk) == 0:
+                        break
+                    elif len(chunk) % 16 != 0:
+                        chunk += b' ' * (16 - len(chunk) % 16)
+
+                    outfile.write(encryptor.encrypt(chunk))
+        return out_filename
+
+    def decrypt_file(self, key, in_filename, out_filename, chunksize=64 * 1024):  # cython could improve performance?
+        """ Decrypts a file using AES (CBC mode) with the
+            given key. Parameters are similar to encrypt_file.
+            From: https://github.com/eliben/code-for-blog/blob/master/2010/aes-encrypt-pycrypto/pycrypto_file.py
+        """
+        with open(in_filename, 'rb') as infile:
+            origsize = struct.unpack('<Q', infile.read(struct.calcsize('Q')))[0]
+            iv = infile.read(16)
+            decryptor = AES.new(key, AES.MODE_CBC, iv)
+
+            with open(out_filename, 'wb') as outfile:
+                while True:
+                    chunk = infile.read(chunksize)
+                    if len(chunk) == 0:
+                        break
+                    outfile.write(decryptor.decrypt(chunk))
+
+                outfile.truncate(origsize)
+        return out_filename
+
+
+class ArchiveManager:
     @dataclasses.dataclass
     class ArchivePackage:
         file_package: [FileEntryDTO]
         archive_file: str
         part_number: int = -1
 
-    def __init__(self, file_bulker: FileBulker, archive_file):
+    def __init__(self, file_bulker: FileBulker, archive_file, archiver: DefaultArchiver):
         self.file_bulker = file_bulker
         self.max_size = file_bulker.max_size
         self.archive_file = archive_file
+        self.archiver = archiver
 
     def archive_package_iter(self) -> (FileEntryDTO, str, int):
         """
@@ -70,26 +152,17 @@ class Archiver:
 
                 i = 0
                 for split_file in self.split_file(file.original_file()):
-                    self.compress_file(split_file, file, self.archive_file)
-                    yield Archiver.ArchivePackage(file_package, self.archive_file, i)
+                    self.archiver.compress_file(split_file, file, self.archive_file)
+                    yield ArchiveManager.ArchivePackage(file_package, self.archive_file, i)
 
                     os.remove(self.archive_file)
                     i += 1
             else:
                 # normal package
-                self.compress_files(file_package, self.archive_file)
-                yield Archiver.ArchivePackage(file_package, self.archive_file, -1)
+                self.archiver.compress_files(file_package, self.archive_file)
+                yield ArchiveManager.ArchivePackage(file_package, self.archive_file, -1)
 
                 os.remove(self.archive_file)
-
-    def compress_file(self, input_file, file_entry: FileEntryDTO, output_archive):
-        pass
-
-    def compress_files(self, input_files: [FileEntryDTO], output_archive):
-        pass
-
-    def file_extension(self):
-        return None
 
     def split_file(self, input_file, buffer=1024) -> str:
         """
@@ -113,33 +186,3 @@ class Archiver:
                                 break
 
                     yield f.name
-
-
-class TarArchiver(Archiver):
-    """
-    Compresses files into tar files.
-
-    - 'w:gz'	Open for gzip compressed writing.
-    - 'w:bz2'	Open for bzip2 compressed writing.
-    - 'w:xz'	Open for lzma compressed writing.
-    """
-
-    def __init__(self, file_bulker: FileBulker, archive_file, open_spec):
-        super().__init__(file_bulker, archive_file)
-        self.open_spec = open_spec
-        if self.open_spec is None:
-            self.open_spec = "w:bz2"
-
-    def compress_file(self, input_file, file_entry: FileEntryDTO, output_archive):
-        with tarfile.open(output_archive, self.open_spec) as tar:
-            bck_path = file_entry.relative_path
-
-            tar.add(input_file, arcname=bck_path)
-
-    def compress_files(self, input_files: [FileEntryDTO], output_archive):
-        with tarfile.open(output_archive, self.open_spec) as tar:
-            for file in input_files:
-                src_path = file.original_file()
-                bck_path = file.relative_path
-
-                tar.add(src_path, arcname=bck_path)

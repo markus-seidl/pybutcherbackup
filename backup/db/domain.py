@@ -1,8 +1,10 @@
 import datetime
 from peewee import *
 from enum import Enum
+import os
 
 from util import util
+from util.util import auto_str
 
 database = Proxy()
 
@@ -19,18 +21,21 @@ class BackupType(Enum):
     DIFFERENTIAL = "DIFF"
 
 
+@auto_str
 class BaseModel(Model):
     class Meta:
         database = database
         legacy_table_names = False
 
 
+@auto_str
 class BackupsEntry(BaseModel):
     pass
     # def __init__(self, *args, **kwargs):
     #    super().__init__(*args, **kwargs)
 
 
+@auto_str
 class BackupEntry(BaseModel):
     created = DateTimeField(default=datetime.datetime.now)
     backups = ForeignKeyField(BackupsEntry, backref='backups')
@@ -51,6 +56,7 @@ class BackupEntry(BaseModel):
         self._type = value.value
 
 
+@auto_str
 class DiscEntry(BaseModel):
     number = IntegerField()
     backup = ForeignKeyField(BackupEntry, backref='discs')
@@ -72,6 +78,7 @@ class DiscEntry(BaseModel):
     #     return ret
 
 
+@auto_str
 class ArchiveEntry(BaseModel):
     number = IntegerField()
     disc = ForeignKeyField(DiscEntry, backref='archives')
@@ -87,7 +94,7 @@ class ArchiveEntry(BaseModel):
 # def __init__(self):
 #     self.files = list()
 
-
+@auto_str
 class FileEntry(BaseModel):
     original_filepath = TextField()
     original_filename = TextField()
@@ -98,11 +105,9 @@ class FileEntry(BaseModel):
     part_number = IntegerField(null=True)
     relative_path = TextField()
 
-    def is_deleted(self):
-        return self.size == -1
-
-    def set_deleted(self):
-        self.size = -1
+    @property
+    def original_file(self):
+        return self.original_filepath + os.sep + self.original_filename
 
     # def __init__(self):
     #     self.archives = list()
@@ -114,6 +119,7 @@ class FileEntry(BaseModel):
     #     return "(%s, %s, %s)" % (self.originalFilepath, self.originalFilename, self.shaSum)
 
 
+@auto_str
 class ArchiveFileMap(BaseModel):
     archive = ForeignKeyField(ArchiveEntry, backref='files')
     file = ForeignKeyField(FileEntry)
@@ -125,6 +131,7 @@ class ArchiveFileMap(BaseModel):
         )
 
 
+@auto_str
 class BackupFileMap(BaseModel):
     backup = ForeignKeyField(BackupEntry, backref='all_files')
     file = ForeignKeyField(FileEntry)
