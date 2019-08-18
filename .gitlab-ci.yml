@@ -1,5 +1,10 @@
 image: docker:latest
 
+variables:
+  # from: https://docs.gitlab.com/ee/ci/docker/using_docker_build.html#tls-enabled
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+
 services:
   - docker:dind
 
