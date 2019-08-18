@@ -5,9 +5,6 @@ import dataclasses
 from backup.core.luke import FileEntryDTO
 import tempfile
 
-import struct
-import random
-from Crypto.Cipher import AES
 
 
 class FileBulker:
@@ -72,56 +69,6 @@ class DefaultArchiver:
                 bck_path = file.relative_path
 
                 tar.add(src_path, arcname=bck_path)
-
-    def encrypt_file(self, key, in_filename, out_filename, chunksize=64 * 1024):  # cython could improve performance?
-        """ Encrypts a file using AES (CBC mode) with the
-            given key.
-            From: https://github.com/eliben/code-for-blog/blob/master/2010/aes-encrypt-pycrypto/pycrypto_file.py
-            key:
-                The encryption key - a bytes object that must be
-                either 16, 24 or 32 bytes long. Longer keys
-                are more secure.
-            chunksize:
-                chunksize must be divisible by 16.
-        """
-        iv = os.urandom(16)
-        encryptor = AES.new(key, AES.MODE_CBC, iv)
-        filesize = os.path.getsize(in_filename)
-
-        with open(in_filename, 'rb') as infile:
-            with open(out_filename, 'wb') as outfile:
-                outfile.write(struct.pack('<Q', filesize))
-                outfile.write(iv)
-
-                while True:
-                    chunk = infile.read(chunksize)
-                    if len(chunk) == 0:
-                        break
-                    elif len(chunk) % 16 != 0:
-                        chunk += b' ' * (16 - len(chunk) % 16)
-
-                    outfile.write(encryptor.encrypt(chunk))
-        return out_filename
-
-    def decrypt_file(self, key, in_filename, out_filename, chunksize=64 * 1024):  # cython could improve performance?
-        """ Decrypts a file using AES (CBC mode) with the
-            given key. Parameters are similar to encrypt_file.
-            From: https://github.com/eliben/code-for-blog/blob/master/2010/aes-encrypt-pycrypto/pycrypto_file.py
-        """
-        with open(in_filename, 'rb') as infile:
-            origsize = struct.unpack('<Q', infile.read(struct.calcsize('Q')))[0]
-            iv = infile.read(16)
-            decryptor = AES.new(key, AES.MODE_CBC, iv)
-
-            with open(out_filename, 'wb') as outfile:
-                while True:
-                    chunk = infile.read(chunksize)
-                    if len(chunk) == 0:
-                        break
-                    outfile.write(decryptor.decrypt(chunk))
-
-                outfile.truncate(origsize)
-        return out_filename
 
 
 class ArchiveManager:

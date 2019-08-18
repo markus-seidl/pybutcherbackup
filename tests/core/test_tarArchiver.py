@@ -71,23 +71,6 @@ class TestDefaultArchiver(TestCase):
 
                     assert tar.next() is None
 
-    def test_encrypt_decrypt(self):
-        with tempfile.NamedTemporaryFile() as source_file:
-            with tempfile.NamedTemporaryFile() as encrypt_file:
-                with tempfile.NamedTemporaryFile() as decrypt_file:
-                    tar = DefaultArchiver()
-
-                    self.create_test_file(source_file.name, 20)
-                    key = "0123456789123456"
-
-                    tar.encrypt_file(key, source_file.name, encrypt_file.name)
-                    tar.decrypt_file(key, encrypt_file.name, decrypt_file.name)
-
-                    assert os.path.getsize(decrypt_file.name) == os.path.getsize(source_file.name)
-
-                    with open(source_file.name, 'r') as f:
-                        assert 'aaaaaaaaaaaaaaaaaaaa' == f.readline()
-
     def test_archive_package_iter(self):
         with tempfile.NamedTemporaryFile() as archive_file:
             with tempfile.TemporaryDirectory() as source_directory:
