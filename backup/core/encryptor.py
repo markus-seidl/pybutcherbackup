@@ -24,8 +24,14 @@ class GpgEncryptor:
             self.data = None
             self.retval = None
 
-    def __init__(self, gpg_location="/usr/local/bin/gpg"):  # TODO automagically find GPG
-        self.gpg_location = gpg_location
+    def __init__(self, gpg_location=None):
+        if not gpg_location:
+            temp = self._which("gpg")
+            if temp is None or len(temp) == 0:
+                raise RuntimeError("Unable to determine path to gpg")
+            self.gpg_location = temp[0]
+        else:
+            self.gpg_location = gpg_location
 
         encoding = locale.getpreferredencoding()
         if encoding is None:  # This happens on Jython!
@@ -225,6 +231,51 @@ class GpgEncryptor:
             #     else:
             #         log.debug("%s" % line)
         result.stderr = ''.join(lines)
+
+    def _which(self, executable, flags=os.X_OK, abspath_only=False, disallow_symlinks=False):
+        """Borrowed from Twisted's :mod:twisted.python.proutils .
+        Search PATH for executable files with the given name.
+        On newer versions of MS-Windows, the PATHEXT environment variable will be
+        set to the list of file extensions for files considered executable. This
+        will normally include things like ".EXE". This fuction will also find files
+        with the given name ending with any of these extensions.
+        On MS-Windows the only flag that has any meaning is os.F_OK. Any other
+        flags will be ignored.
+        Note: This function does not help us prevent an attacker who can already
+        manipulate the environment's PATH settings from placing malicious code
+        higher in the PATH. It also does happily follows links.
+        :param str name: The name for which to search.
+        :param int flags: Arguments to L{os.access}.
+        :rtype: list
+        :returns: A list of the full paths to files found, in the order in which
+                  they were found.
+        """
+
+        def _can_allow(p):
+            if not os.access(p, flags):
+                return False
+            if abspath_only and not os.path.abspath(p):
+                # log.warn('Ignoring %r (path is not absolute)', p)
+                return False
+            if disallow_symlinks and os.path.islink(p):
+                # log.warn('Ignoring %r (path is a symlink)', p)
+                return False
+            return True
+
+        result = []
+        exts = filter(None, os.environ.get('PATHEXT', '').split(os.pathsep))
+        path = os.environ.get('PATH', None)
+        if path is None:
+            return []
+        for p in os.environ.get('PATH', '').split(os.pathsep):
+            p = os.path.join(p, executable)
+            if _can_allow(p):
+                result.append(p)
+            for e in exts:
+                pext = p + e
+                if _can_allow(pext):
+                    result.append(pext)
+        return result
 
 
 class PyCryptoEncryptor:
