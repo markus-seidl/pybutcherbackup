@@ -4,7 +4,6 @@ from unittest import TestCase, main
 from unittest.mock import Mock
 from backup.core.archive import ArchiveManager, FileBulker, DefaultArchiver
 
-
 class TestArchiver(TestCase):
     def test_split_file_1(self):
         with tempfile.NamedTemporaryFile() as tf:

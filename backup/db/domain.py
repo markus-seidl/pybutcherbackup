@@ -3,8 +3,7 @@ from peewee import *
 from enum import Enum
 import os
 
-from util import util
-from util.util import auto_str
+from backup.util.util import auto_str, is_enum
 
 database = Proxy()
 
@@ -50,7 +49,7 @@ class BackupEntry(BaseModel):
 
     @type.setter
     def type(self, value: BackupType):
-        if not util.is_enum(value):
+        if not is_enum(value):
             raise Exception("Type is not an enum")
 
         self._type = value.value
@@ -144,7 +143,7 @@ class BackupFileMap(BaseModel):
 
     @state.setter
     def state(self, value: FileState):
-        if not util.is_enum(value):
+        if not is_enum(value):
             raise Exception("State is not an enum")
 
         self._state = value.value
