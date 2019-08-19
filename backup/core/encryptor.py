@@ -13,7 +13,19 @@ import struct
 from Crypto.Cipher import AES
 
 
-class GpgEncryptor:
+class Encryptor:
+    def encrypt_file(self, in_filename, out_filename):
+        pass
+
+    def decrypt_file(self, in_filename, out_filename):
+        pass
+
+    @property
+    def extension(self):
+        raise RuntimeError("Please extend this method.")
+
+
+class GpgEncryptor(Encryptor):
     """
     From: https://github.com/isislovecruft/python-gnupg/blob/master/pretty_bad_protocol/_*.py
     """
@@ -24,7 +36,7 @@ class GpgEncryptor:
             self.data = None
             self.retval = None
 
-    def __init__(self, gpg_location=None):
+    def __init__(self, key, gpg_location=None):
         if not gpg_location:
             temp = self._which("gpg")
             if temp is None or len(temp) == 0:
@@ -38,7 +50,13 @@ class GpgEncryptor:
             encoding = sys.stdin.encoding
         self._encoding = encoding.lower().replace('-', '_')
 
-    def encrypt_file(self, key, in_filename, out_filename):
+        self.key = key
+
+    @property
+    def extension(self):
+        return "gpg"
+
+    def encrypt_file(self, in_filename, out_filename):
         #  gpg --passphrase 1234 --batch --symmetric --cipher-algo AES256 XXX
 
         cmd = list()
@@ -49,7 +67,7 @@ class GpgEncryptor:
         cmd.append("--output %s" % out_filename)
         cmd.append("-c")
         cmd.append("--cipher-algo AES256")
-        cmd.append("--passphrase %s" % key)
+        cmd.append("--passphrase %s" % self.key)
         cmd.append(in_filename)
 
         process = self._open_subprocess(cmd)
@@ -61,7 +79,7 @@ class GpgEncryptor:
 
         return result
 
-    def decrypt_file(self, key, in_filename, out_filename):
+    def decrypt_file(self, in_filename, out_filename):
         #  gpg --passphrase 1234 --batch --symmetric --cipher-algo AES256 XXX
 
         cmd = list()
@@ -70,7 +88,7 @@ class GpgEncryptor:
         cmd.append("--yes")  # needed because in tests the output file already exists
         cmd.append("--output %s" % out_filename)
         cmd.append("-d")
-        cmd.append("--passphrase %s" % key)
+        cmd.append("--passphrase %s" % self.key)
         cmd.append(in_filename)
 
         process = self._open_subprocess(cmd)
@@ -278,8 +296,15 @@ class GpgEncryptor:
         return result
 
 
-class PyCryptoEncryptor:
-    def encrypt_file(self, key, in_filename, out_filename, chunksize=64 * 1024):  # cython could improve performance?
+class PyCryptoEncryptor(Encryptor):
+    def __init__(self, key):
+        self.key = key
+
+    @property
+    def extension(self):
+        return "aes"
+
+    def encrypt_file(self, in_filename, out_filename):
         """ Encrypts a file using AES (CBC mode) with the
             given key.
             From: https://github.com/eliben/code-for-blog/blob/master/2010/aes-encrypt-pycrypto/pycrypto_file.py
@@ -290,8 +315,9 @@ class PyCryptoEncryptor:
             chunksize:
                 chunksize must be divisible by 16.
         """
+        chunksize = 64 * 1024
         iv = os.urandom(16)
-        encryptor = AES.new(key, AES.MODE_CBC, iv)
+        encryptor = AES.new(self.key, AES.MODE_CBC, iv)
         filesize = os.path.getsize(in_filename)
 
         with open(in_filename, 'rb') as infile:
@@ -308,15 +334,16 @@ class PyCryptoEncryptor:
 
                     outfile.write(encryptor.encrypt(chunk))
 
-    def decrypt_file(self, key, in_filename, out_filename, chunksize=64 * 1024):  # cython could improve performance?
+    def decrypt_file(self, in_filename, out_filename):
         """ Decrypts a file using AES (CBC mode) with the
             given key. Parameters are similar to encrypt_file.
             From: https://github.com/eliben/code-for-blog/blob/master/2010/aes-encrypt-pycrypto/pycrypto_file.py
         """
+        chunksize = 64 * 1024
         with open(in_filename, 'rb') as infile:
             origsize = struct.unpack('<Q', infile.read(struct.calcsize('Q')))[0]
             iv = infile.read(16)
-            decryptor = AES.new(key, AES.MODE_CBC, iv)
+            decryptor = AES.new(self.key, AES.MODE_CBC, iv)
 
             with open(out_filename, 'wb') as outfile:
                 while True:

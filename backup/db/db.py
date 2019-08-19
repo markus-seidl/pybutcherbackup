@@ -85,6 +85,9 @@ class BackupDatabaseWriter:
         )
 
     def map_file_to_backup(self, file, state: FileState):
+        """
+        Maps the file to the current backup. Automagically called when the file entity is created.
+        """
         return BackupFileMap.create(
             backup=self.backup_root,
             file=file,
@@ -117,15 +120,38 @@ class BackupDatabaseReader:
 
     def __init__(self, all_files):
         self._all_files = all_files
+        self._all_sha = dict()
+
+        for path in all_files:
+            self._all_sha[all_files[path].sha_sum] = all_files[path]
 
     @property
-    def all_files(self):
+    def all_files(self) -> {str: FileEntry}:
         return dict(self._all_files)
+
+    def find_sha(self, sha_sum):
+        if sha_sum not in self._all_sha:
+            return None
+
+        return self._all_sha[sha_sum]
+
+    def find_original_path(self, original_path):
+        if original_path not in self._all_files:
+            return None
+
+        return self._all_files[original_path]
+
+    @property
+    def is_empty(self) -> bool:
+        return len(self._all_files) == 0
 
 
 class DatabaseManager:
     # Note that the database manager is static because of the "static" proxy to peewee.database
     def __init__(self, file_name):
+        if file_name is None:
+            raise RuntimeError("Database file can't be None.")
+
         self.file_name = file_name
         self.database = database
         self.open_database(file_name)
@@ -134,15 +160,19 @@ class DatabaseManager:
         return self.database.transaction()
 
     def open_database(self, file_name):
-        database.initialize(SqliteDatabase(file_name, pragmas={'foreign_keys': 1}))
+        self.database.initialize(SqliteDatabase(file_name, pragmas={'foreign_keys': 1}))
+        self.database.connect()
         self.create_tables()
 
     def create_tables(self):
-        with database:
-            database.create_tables(
+        with self.database:
+            self.database.create_tables(
                 [BackupsEntry, BackupEntry, DiscEntry, ArchiveEntry,
                  ArchiveFileMap, FileEntry, BackupFileMap]
             )
+
+    def close_database(self):
+        self.database.close()
 
     def all_backups(self):
         return BackupEntry.select()

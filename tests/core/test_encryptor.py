@@ -14,13 +14,12 @@ class TestPyCryptoEncryptor(TestCase):
         with tempfile.NamedTemporaryFile() as source_file:
             with tempfile.NamedTemporaryFile() as encrypt_file:
                 with tempfile.NamedTemporaryFile() as decrypt_file:
-                    tar = PyCryptoEncryptor()
+                    tar = PyCryptoEncryptor("0123456789123456")
 
                     self.create_test_file(source_file.name, 20)
-                    key = "0123456789123456"
 
-                    tar.encrypt_file(key, source_file.name, encrypt_file.name)
-                    tar.decrypt_file(key, encrypt_file.name, decrypt_file.name)
+                    tar.encrypt_file(source_file.name, encrypt_file.name)
+                    tar.decrypt_file(encrypt_file.name, decrypt_file.name)
 
                     assert os.path.getsize(decrypt_file.name) == os.path.getsize(source_file.name)
 
@@ -38,13 +37,12 @@ class TestGpgEncryptor(TestCase):
         with tempfile.NamedTemporaryFile() as source_file:
             with tempfile.NamedTemporaryFile() as encrypt_file:
                 with tempfile.NamedTemporaryFile() as decrypt_file:
-                    tar = GpgEncryptor()
+                    tar = GpgEncryptor("0123456789123456")
 
                     self.create_test_file(source_file.name, 20)
-                    key = "0123456789123456"
 
-                    tar.encrypt_file(key, source_file.name, encrypt_file.name)
-                    tar.decrypt_file(key, encrypt_file.name, decrypt_file.name)
+                    tar.encrypt_file(source_file.name, encrypt_file.name)
+                    tar.decrypt_file(encrypt_file.name, decrypt_file.name)
 
                     assert os.path.getsize(decrypt_file.name) == os.path.getsize(source_file.name)
 

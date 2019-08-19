@@ -6,7 +6,6 @@ from backup.core.luke import FileEntryDTO
 import tempfile
 
 
-
 class FileBulker:
     """Bulks the list of files retrieved from the filewalker, into packages of size max_size."""
 
@@ -69,6 +68,12 @@ class DefaultArchiver:
                 bck_path = file.relative_path
 
                 tar.add(src_path, arcname=bck_path)
+
+    @property
+    def extension(self):
+        if self.open_spec == 'w:bz2':
+            return "tar.bz2"
+        raise RuntimeError("TODO")
 
 
 class ArchiveManager:

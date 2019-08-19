@@ -81,6 +81,7 @@ class DiscEntry(BaseModel):
 class ArchiveEntry(BaseModel):
     number = IntegerField()
     disc = ForeignKeyField(DiscEntry, backref='archives')
+    name = TextField(null=True)
 
 
 # number = None
