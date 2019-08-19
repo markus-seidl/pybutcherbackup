@@ -96,6 +96,21 @@ class BackupDatabaseWriter:
 
 
 class BackupDatabaseReader:
+    class FileInfo:
+        def __init__(self, file: FileEntry, state: FileState, backup: BackupEntry):
+            self.file = file
+            self.state = state
+            self.backup = backup
+
+            afm = ArchiveFileMap.select().join(ArchiveEntry).join(DiscEntry).where(
+                (ArchiveFileMap.file == file)
+                & (DiscEntry.backup == backup)
+            ).first()
+            if afm is None:
+                raise RuntimeError("Database corruption, can't find backup for file %s" % file)
+
+            self.archive = afm.archive
+            self.disc = afm.archive.disc
 
     @staticmethod
     def create_reader_from_backup(backup_root: BackupsEntry, backup_start):
@@ -108,38 +123,53 @@ class BackupDatabaseReader:
 
         backups.reverse()
         # generate full file list
-        files = dict()
+        file_original_file = dict()
+        file_sha = dict()
         for backup in backups:
             for backup_file_map in backup.all_files.select():
-                if backup_file_map.state in (FileState.NEW, FileState.IDENTICAL, FileState.UPDATED):
-                    files[backup_file_map.file.original_file] = backup_file_map.file
+                f = backup_file_map.file
+                if backup_file_map.state in (FileState.NEW, FileState.UPDATED):
+                    info = BackupDatabaseReader.FileInfo(
+                        backup_file_map.file, backup_file_map.state, backup
+                    )
+                    file_original_file[f.original_file] = info
+                    file_sha[f.sha_sum] = info
                 elif backup_file_map.state == FileState.DELETED:
-                    del files[backup_file_map.file.original_file]
+                    del file_original_file[f.original_file]
+                    del file_sha[f.sha_sum]
 
-        return BackupDatabaseReader(files)
+        return BackupDatabaseReader(file_original_file, file_sha)
 
-    def __init__(self, all_files):
-        self._all_files = all_files
-        self._all_sha = dict()
-
-        for path in all_files:
-            self._all_sha[all_files[path].sha_sum] = all_files[path]
+    def __init__(self, file_original_file: {str: FileInfo}, file_sha: {str: FileInfo}):
+        self._all_files = file_original_file
+        self._all_sha = file_sha
 
     @property
     def all_files(self) -> {str: FileEntry}:
-        return dict(self._all_files)
+        ret = dict()
+        for key in self._all_files:
+            ret[key] = self._all_files[key].file
+
+        return ret
 
     def find_sha(self, sha_sum):
         if sha_sum not in self._all_sha:
             return None
 
-        return self._all_sha[sha_sum]
+        return self._all_sha[sha_sum].file
 
-    def find_original_path(self, original_path):
-        if original_path not in self._all_files:
+    def find_original_file(self, original_file):
+        if original_file not in self._all_files:
             return None
 
-        return self._all_files[original_path]
+        return self._all_files[original_file].file
+
+    def find_coordinates(self, file: FileEntry) -> (FileEntry, FileState, ArchiveEntry, DiscEntry, BackupEntry):
+        if file.original_file not in self._all_files:
+            return None, None, None, None, None
+
+        fi = self._all_files[file.original_file]
+        return fi.file, fi.state, fi.archive, fi.disc, fi.backup
 
     @property
     def is_empty(self) -> bool:

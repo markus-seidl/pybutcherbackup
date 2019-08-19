@@ -1,10 +1,10 @@
 @startuml
 
 BackupsEntry  "1" *-- "n" BackupEntry
-BackupEntry "1" *-- "n" DiscEntry
-DiscEntry "1" *-- "n" ArchiveEntry
+BackupEntry "1: discs" *-- "n" DiscEntry
+DiscEntry "1: archives" *-- "n" ArchiveEntry
 
-ArchiveEntry "1" *-- "n" ArchiveFileMap
+ArchiveEntry "1: files" *-- "n" ArchiveFileMap
 ArchiveFileMap "1" *-- "n" FileEntry
 
 BackupEntry "1: all_files" *-- "n" BackupFileMap

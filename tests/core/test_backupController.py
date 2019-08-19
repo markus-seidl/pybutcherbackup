@@ -55,7 +55,7 @@ class TestDefaultController(TestCase):
                     backup_reader = db.read_backup(None)
 
                     for file in src_file_list:
-                        test = backup_reader.find_original_path(file)
+                        test = backup_reader.find_original_file(file)
 
                         assert test is not None
 

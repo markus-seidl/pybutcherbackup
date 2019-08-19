@@ -12,7 +12,6 @@ class FileState(Enum):
     NEW = "NEW"
     UPDATED = "UPDATED"
     DELETED = "DELETED"
-    IDENTICAL = "IDENTICAL"
 
 
 class BackupType(Enum):

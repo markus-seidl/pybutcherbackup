@@ -46,7 +46,6 @@ class TestBackupDatabaseReader(unittest.TestCase):
 
                 disc01 = backup_manager.create_disc()
 
-                backup_manager.create_file_from_dto(dto_file01_full_01_01, FileState.IDENTICAL)
                 backup_manager.create_file_from_dto(dto_file01_full_02_01, FileState.DELETED)
 
                 archive01_02 = backup_manager.create_archive(disc01)
