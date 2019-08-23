@@ -39,7 +39,7 @@ class BackupDatabaseWriter:
         # Prevent duplication of files
         original_file = original_path + os.sep + original_filename
         if original_file in self.files:
-            return self.get_file(relative_path)
+            return self.get_file(original_file)
 
         file = FileEntry.create(
             original_filepath=original_path,
@@ -57,8 +57,8 @@ class BackupDatabaseWriter:
 
         return file
 
-    def get_file(self, relative_path) -> FileEntry:
-        return self.files[relative_path]
+    def get_file(self, original_file) -> FileEntry:
+        return self.files[original_file]
 
     def create_disc(self) -> DiscEntry:
         no = self.disc_number
@@ -102,15 +102,14 @@ class BackupDatabaseReader:
             self.state = state
             self.backup = backup
 
-            afm = ArchiveFileMap.select().join(ArchiveEntry).join(DiscEntry).where(
-                (ArchiveFileMap.file == file)
-                & (DiscEntry.backup == backup)
-            ).first()
-            if afm is None:
-                raise RuntimeError("Database corruption, can't find backup for file %s" % file)
+            self.archives = list()
+            for afm in ArchiveFileMap.select().join(ArchiveEntry).join(DiscEntry).where(
+                    (ArchiveFileMap.file == file)
+                    & (DiscEntry.backup == backup)):
+                self.archives.append(afm.archive)
 
-            self.archive = afm.archive
-            self.disc = afm.archive.disc
+            if len(self.archives) == 0:
+                raise RuntimeError("Database corruption, can't find backup for file %s" % file)
 
     @staticmethod
     def create_reader_from_backup(backup_root: BackupsEntry, backup_start):
@@ -158,18 +157,23 @@ class BackupDatabaseReader:
 
         return self._all_sha[sha_sum].file
 
-    def find_original_file(self, original_file):
+    def find_original_file(self, original_file) -> FileEntry:
         if original_file not in self._all_files:
             return None
 
         return self._all_files[original_file].file
 
-    def find_coordinates(self, file: FileEntry) -> (FileEntry, FileState, ArchiveEntry, DiscEntry, BackupEntry):
+    def find_coordinates(self, file: FileEntry) -> (FileEntry, FileState, [ArchiveEntry], BackupEntry):
+        """
+
+        :param file:
+        :return: file, state, [archive], backup
+        """
         if file.original_file not in self._all_files:
-            return None, None, None, None, None
+            return None, None, None, None
 
         fi = self._all_files[file.original_file]
-        return fi.file, fi.state, fi.archive, fi.disc, fi.backup
+        return fi.file, fi.state, fi.archives, fi.backup
 
     @property
     def is_empty(self) -> bool:

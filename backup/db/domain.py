@@ -3,7 +3,7 @@ from peewee import *
 from enum import Enum
 import os
 
-from backup.util.util import auto_str, is_enum
+from backup.common.util import auto_str, is_enum
 
 database = Proxy()
 

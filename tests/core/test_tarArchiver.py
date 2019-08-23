@@ -63,13 +63,10 @@ class TestDefaultArchiver(TestCase):
 
                 tar.compress_files([file_entry], archive_file.name)
 
-                with tarfile.open(archive_file.name, 'r:' + compression_type) as tar:
-                    # tar.extract(relative_path)
-                    file_info = tar.next()
-                    assert file_info.size == 14
-                    assert file_info.name == relative_path[1:]
+                with tempfile.TemporaryDirectory() as dest_dir:
+                    tar.decompress_files(archive_file.name, [file_entry.relative_path], dest_dir)
 
-                    assert tar.next() is None
+                    assert os.stat(dest_dir + os.sep + file_entry.relative_path).st_size == 14
 
     def test_archive_package_iter(self):
         with tempfile.NamedTemporaryFile() as archive_file:

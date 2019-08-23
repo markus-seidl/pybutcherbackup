@@ -3,6 +3,8 @@ import hashlib
 import os
 from typing import List
 
+from backup.common.util import calculate_file_hash
+
 
 class FileEntryDTO:
     def __init__(self):
@@ -31,13 +33,7 @@ class LukeFilewalker:
 
     @staticmethod
     def calculate_hash(filename: str) -> str:
-        sha256_hash = hashlib.sha256()
-        with open(filename, "rb") as f:
-            # Read and update hash string value in blocks of 4K
-            for byte_block in iter(lambda: f.read(4096), b""):
-                sha256_hash.update(byte_block)
-
-            return sha256_hash.hexdigest()
+        return calculate_file_hash(filename)
 
     def _find_relative_path(self, backup_dir: str, original_file_path: str) -> str:
         return original_file_path[len(backup_dir):]
