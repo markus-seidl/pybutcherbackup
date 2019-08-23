@@ -6,19 +6,22 @@ import shutil
 from backup.core.luke import LukeFilewalker
 from backup.core.archive import FileBulker, DefaultArchiver, ArchiveManager
 from backup.core.encryptor import GpgEncryptor
-from backup.db.db import DatabaseManager, BackupDatabaseReader, BackupType, FileState, ArchiveEntry, FileEntry
+from backup.db.db import DatabaseManager, BackupDatabaseReader, BackupType, FileState, ArchiveEntry, FileEntry, \
+    DiscEntry
+from backup.db.disc_number import DiscNumber
+
+DEFAULT_DATABASE_FILENAME = "index.sqlite"
 
 
 class GeneralSettings:
     def __init__(self):
-        self.database_name = "index.sqlite"
-
-    pass
+        self.database_name = DEFAULT_DATABASE_FILENAME
+        self.index_filename = "disc_number.yml"
 
 
 class BackupParameters:
     def __init__(self):
-        self.database_location = "./index.sqlite"
+        self.database_location = "./" + DEFAULT_DATABASE_FILENAME
         self.source = None
         self.destination = None
         self.calculate_sha = True
@@ -32,7 +35,7 @@ class BackupParameters:
 
 class RestoreParameters:
     def __init__(self):
-        self.database_location = "./index.sqlite"
+        self.database_location = "./" + DEFAULT_DATABASE_FILENAME
         self.source = None
         self.destination = None
         self.encryption_key = None
@@ -65,6 +68,7 @@ class BackupController(BaseController):
         temp_archive_file = tempfile.NamedTemporaryFile()
 
         disc_directories = list()
+        disc_directory = None
         with db.transaction() as txn:
             backup_reader = db.read_backup(None)
             file_filter = FileFilter(
@@ -88,12 +92,12 @@ class BackupController(BaseController):
                 if disc_size >= params.disc_size or disc_domain is None:
                     if disc_domain is not None:  # if there is no entity, it's the first iteration
                         # finish previous disc
-                        self._finish_disc(params)
+                        self._finish_disc(params, disc_directory, disc_domain)
 
                     # create new disc
                     disc_domain = backup_writer.create_disc()
-                    disc_directories.append(self._create_disc_name(params, disc_domain))
-                    self._create_disc_dir(params, disc_domain)
+                    disc_directory = self._create_disc_dir(params, disc_domain)
+                    disc_directories.append(disc_directory)
 
                 archive_domain = backup_writer.create_archive(disc_domain)
                 for file_dto in archive_package.file_package:
@@ -123,6 +127,9 @@ class BackupController(BaseController):
 
                 backup_writer.create_file_from_dto(file_dto, FileState.DELETED)
 
+            if disc_domain is not None:  # finish last disc
+                self._finish_disc(params, disc_directory, disc_domain)
+
             txn.commit()
 
         db.close_database()
@@ -145,10 +152,13 @@ class BackupController(BaseController):
         return d + os.sep + "%05i" % archive_domain.number
 
     def _create_disc_dir(self, parameters, disc_domain):
-        os.mkdir(self._create_disc_name(parameters, disc_domain))
+        disc_dir = self._create_disc_name(parameters, disc_domain)
+        os.mkdir(disc_dir)
+        return disc_dir
 
-    def _finish_disc(self, parameters):
-        pass
+    def _finish_disc(self, parameters, disc_directory: str, disc_domain: DiscEntry):
+        out_file = disc_directory + os.sep + self.general_settings.index_filename
+        DiscNumber(disc_domain.id, disc_domain.number).serialize(out_file)
 
     def _finish_backup(self, db: DatabaseManager, params: BackupParameters, disc_dirs: list, encryptor: GpgEncryptor):
         db_file = db.file_name
