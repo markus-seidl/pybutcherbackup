@@ -2,7 +2,9 @@ import os
 import re
 import tempfile
 import shutil
+import logging
 
+from backup.common.logger import configure_logger
 from backup.core.luke import LukeFilewalker
 from backup.core.archive import FileBulker, DefaultArchiver, ArchiveManager
 from backup.core.encryptor import GpgEncryptor
@@ -11,6 +13,8 @@ from backup.db.db import DatabaseManager, BackupDatabaseReader, BackupType, File
 from backup.db.disc_number import DiscNumber
 
 DEFAULT_DATABASE_FILENAME = "index.sqlite"
+
+logger = configure_logger(logging.getLogger(__name__))
 
 
 class GeneralSettings:
@@ -27,7 +31,7 @@ class BackupParameters:
         self.calculate_sha = True
         self.single_archive_size = 1024 * 1024 * 1024  # 1 GB
         """Single Archive size in bytes"""
-        self.disc_size = 1024 * 1024 * 1024 * 40  # 40 GB
+        self.disc_size = 1024 * 1024 * 1024 * 44  # 44 GB
         """Size of one backup disc"""
         self.backup_type = BackupType.DIFFERENTIAL
         self.encryption_key = None
@@ -110,6 +114,7 @@ class BackupController(BaseController):
                 archive_name = self._create_archive_name(params, disc_domain, archive_domain)
                 archive_name += ".%s" % archiver.extension
 
+                logger.info("Handling archive <%s>..." % archive_name)
                 shutil.copy(archive_package.archive_file, archive_name)
 
                 final_archive_name = archive_name

@@ -1,9 +1,13 @@
 import os
 import tarfile
 import dataclasses
+import logging
 
+from backup.common.logger import configure_logger
 from backup.core.luke import FileEntryDTO
 import tempfile
+
+logger = configure_logger(logging.getLogger(__name__))
 
 
 class FileBulker:
