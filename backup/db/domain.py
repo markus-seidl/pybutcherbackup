@@ -101,7 +101,6 @@ class FileEntry(BaseModel):
     modified_time = DateTimeField()
     size = IntegerField()
     """Size in bytes"""
-    part_number = IntegerField(null=True)
     relative_path = TextField()
 
     @property

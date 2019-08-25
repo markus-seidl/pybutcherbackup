@@ -3,3 +3,7 @@ unittest-xml-reporting
 coverage
 pycrypto
 pyyaml
+tqdm
+colorama
+click
+texttable

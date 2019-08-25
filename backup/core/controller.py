@@ -5,12 +5,14 @@ import shutil
 import logging
 
 from backup.common.logger import configure_logger
+from backup.common.util import copy_with_progress
 from backup.core.luke import LukeFilewalker
 from backup.core.archive import FileBulker, DefaultArchiver, ArchiveManager
 from backup.core.encryptor import GpgEncryptor
 from backup.db.db import DatabaseManager, BackupDatabaseReader, BackupType, FileState, ArchiveEntry, FileEntry, \
     DiscEntry
 from backup.db.disc_number import DiscNumber
+from tqdm import tqdm
 
 DEFAULT_DATABASE_FILENAME = "index.sqlite"
 
@@ -102,6 +104,7 @@ class BackupController(BaseController):
                     disc_domain = backup_writer.create_disc()
                     disc_directory = self._create_disc_dir(params, disc_domain)
                     disc_directories.append(disc_directory)
+                    disc_size = 0
 
                 archive_domain = backup_writer.create_archive(disc_domain)
                 for file_dto in archive_package.file_package:
@@ -114,8 +117,10 @@ class BackupController(BaseController):
                 archive_name = self._create_archive_name(params, disc_domain, archive_domain)
                 archive_name += ".%s" % archiver.extension
 
-                logger.info("Handling archive <%s>..." % archive_name)
-                shutil.copy(archive_package.archive_file, archive_name)
+                # Copy archive to destination / TODO create archive at destination?
+                with tqdm(total=-1, leave=False, unit='B', unit_scale=True, unit_divisor=1024) as t:
+                    t.set_description('Copy archive to destination')
+                    copy_with_progress(archive_package.archive_file, archive_name, t)
 
                 final_archive_name = archive_name
                 if encryptor is not None:
@@ -125,15 +130,21 @@ class BackupController(BaseController):
                 self._update_archive(archive_domain, final_archive_name)
                 disc_size += self._get_size(final_archive_name)
 
-            for file_dto in file_filter.filtered_files:
-                old_file = backup_reader.find_original_file(file_dto.original_path())
-                if old_file is not None:
-                    raise RuntimeError("Internal error.")
-
-                backup_writer.create_file_from_dto(file_dto, FileState.DELETED)
-
             if disc_domain is not None:  # finish last disc
                 self._finish_disc(params, disc_directory, disc_domain)
+
+            # find out which files where deleted
+            for file in backup_reader.all_files:
+                if file.relative_path not in file_filter.handled_files:
+                    backup_writer.create_file(
+                        file.original_path,
+                        file.original_filename,
+                        file.sha_sum,
+                        file.modified_time,
+                        file.relative_path,
+                        file.size,
+                        FileState.DELETED
+                    )
 
             txn.commit()
 
@@ -177,13 +188,15 @@ class BackupController(BaseController):
             ext = "." + encryptor.extension
 
         for disc in disc_dirs:
-            shutil.copy(db_file, disc + os.sep + self.general_settings.database_name)
+            shutil.copy(db_file, disc + os.sep + self.general_settings.database_name + ext)
+
+        if db_tmp_file:
+            db_tmp_file.close()
 
 
 class RestoreSourceLocator:
-    def available_sources(self, params: RestoreParameters, backup_reader: BackupDatabaseReader, restore_files: [str],
-                          ext) \
-            -> [str]:
+    def available_sources(self, params: RestoreParameters, backup_reader: BackupDatabaseReader,
+                          restore_files: [str], ext) -> [str]:
         raise RuntimeError("Implement me")
 
     def find_archive(self, params: RestoreParameters, backup_reader: BackupDatabaseReader, archive: ArchiveEntry, ext) \
@@ -320,7 +333,7 @@ class RestoreController(BaseController):
                                 prf.archive_parts[archive_entry] = tmp_file
 
                                 file = backup_reader.find_original_file(original_file)
-                                shutil.move(params.destination + file.relative_path, tmp_file.name)
+                                shutil.move(params.destination + os.sep + file.relative_path, tmp_file.name)
 
                         for original_file in original_files_count:
                             count = original_files_count[original_file]
@@ -373,19 +386,20 @@ class FileFilter:
         self._backup_reader = backup_reader
         self._file_iterator = file_iterator
         self.filtered_files = list()
+        self.handled_files = dict()
 
     def iterator(self):
         br = self._backup_reader
         for file in self._file_iterator:
-            fp = br.find_original_file(file.original_path)
+            fp = br.find_original_file(file.relative_path)
 
-            if file.sha_sum is not None:
-                fs = br.find_sha(file.sha_sum)
-            else:
-                fs = False
+            fs = False
+            if fp:
+                fs = fp.sha_sum == file.sha_sum
 
-            if fp or fs:
+            if fp and not fs:
                 self.filtered_files.append(file)
                 continue
 
+            self.handled_files[file.relative_path] = file
             yield file

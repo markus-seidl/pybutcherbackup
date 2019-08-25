@@ -1,11 +1,13 @@
 import os
 
 from peewee import SqliteDatabase
+from tqdm import tqdm
 
 from backup.db.domain import *
 from enum import Enum
 
 from backup.core.luke import FileEntryDTO
+from backup.common.util import configure_tqdm
 
 
 class BackupDatabaseWriter:
@@ -124,18 +126,28 @@ class BackupDatabaseReader:
         # generate full file list
         file_original_file = dict()
         file_sha = dict()
+
+        # guess records to process
+        total_records = 0
         for backup in backups:
-            for backup_file_map in backup.all_files.select():
-                f = backup_file_map.file
-                if backup_file_map.state in (FileState.NEW, FileState.UPDATED):
-                    info = BackupDatabaseReader.FileInfo(
-                        backup_file_map.file, backup_file_map.state, backup
-                    )
-                    file_original_file[f.original_file] = info
-                    file_sha[f.sha_sum] = info
-                elif backup_file_map.state == FileState.DELETED:
-                    del file_original_file[f.original_file]
-                    del file_sha[f.sha_sum]
+            total_records += len(backup.all_files)
+
+        with tqdm(total=total_records, leave=False, unit='records') as t:
+            configure_tqdm(t)
+            t.set_description('Reading backup information')
+
+            for backup in backups:
+                for backup_file_map in backup.all_files.select():
+                    f = backup_file_map.file
+                    if backup_file_map.state in (FileState.NEW, FileState.UPDATED):
+                        info = BackupDatabaseReader.FileInfo(
+                            backup_file_map.file, backup_file_map.state, backup
+                        )
+                        file_original_file[f.original_file] = info
+                    elif backup_file_map.state == FileState.DELETED:
+                        del file_original_file[f.original_file]
+
+                    t.update(1)
 
         return BackupDatabaseReader(file_original_file, file_sha)
 
@@ -145,17 +157,14 @@ class BackupDatabaseReader:
 
     @property
     def all_files(self) -> {str: FileEntry}:
+        """
+        :return: original_file() : FileEntry
+        """
         ret = dict()
         for key in self._all_files:
             ret[key] = self._all_files[key].file
 
         return ret
-
-    def find_sha(self, sha_sum):
-        if sha_sum not in self._all_sha:
-            return None
-
-        return self._all_sha[sha_sum].file
 
     def find_original_file(self, original_file) -> FileEntry:
         if original_file not in self._all_files:

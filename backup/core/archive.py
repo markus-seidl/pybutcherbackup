@@ -2,10 +2,14 @@ import os
 import tarfile
 import dataclasses
 import logging
+from math import ceil
 
+from tqdm import tqdm
 from backup.common.logger import configure_logger
 from backup.core.luke import FileEntryDTO
 import tempfile
+
+from backup.common.util import configure_tqdm
 
 logger = configure_logger(logging.getLogger(__name__))
 
@@ -64,16 +68,21 @@ class DefaultArchiver:
     def compress_file(self, override_file, file_entry: FileEntryDTO, output_archive):
         with tarfile.open(output_archive, self.open_spec) as tar:
             bck_path = file_entry.relative_path
-
             tar.add(override_file, arcname=bck_path)
 
     def compress_files(self, input_files: [FileEntryDTO], output_archive):
         with tarfile.open(output_archive, self.open_spec) as tar:
-            for file in input_files:
-                src_path = file.original_file()
-                bck_path = file.relative_path
+            with tqdm(input_files, leave=False, unit='file') as t:
+                configure_tqdm(t)
+                t.set_description('Compressing files')
 
-                tar.add(src_path, arcname=bck_path)
+                for file in t:
+                    src_path = file.original_file()
+                    bck_path = file.relative_path
+
+                    t.set_postfix(file=file.relative_path)
+                    tar.add(src_path, arcname=bck_path)
+                    t.update(1)
 
     def decompress_files(self, source_archive: str, relative_files: [str], output_dir: str):
         with tarfile.open(source_archive, 'r:*') as tar:
@@ -118,41 +127,52 @@ class ArchiveManager:
                 # split file
                 file = file_package[0]
 
-                i = 0
-                for split_file in self.split_file(file.original_file()):
-                    self.archiver.compress_file(split_file, file, self.temp_archive_file)
-                    yield ArchiveManager.ArchivePackage(file_package, self.temp_archive_file, i)
+                # guess parts
+                parts = int(ceil(file.size / self.max_size))
 
-                    # if os.path.exists(self.temp_archive_file):
-                    #    os.remove(self.temp_archive_file)
+                i = 0
+                with tqdm(total=parts, unit='part', leave=False) as t:
+                    configure_tqdm(t)
+                    t.set_description('Compressing part')
+
+                    for split_file in self.split_file(file.original_file()):
+                        t.set_postfix(file=file.relative_path)
+                        t.unpause()
+                        self.archiver.compress_file(split_file, file, self.temp_archive_file)
+                        t.update(1)
+                        yield ArchiveManager.ArchivePackage(file_package, self.temp_archive_file, i)
+
                     i += 1
             else:
                 # normal package
                 self.archiver.compress_files(file_package, self.temp_archive_file)
                 yield ArchiveManager.ArchivePackage(file_package, self.temp_archive_file, -1)
 
-                # if os.path.exists(self.temp_archive_file):
-                #    os.remove(self.temp_archive_file)
-
     def split_file(self, input_file, buffer=1024) -> str:
         """
         Splits the file in multiple parts which have 'roughly' the size of self.max_size. The smallest size is
         determined by the buffer size.
         """
-        with open(input_file, 'rb') as src:
-            while True:
-                with tempfile.NamedTemporaryFile() as f:
-                    with open(f.name, 'wb') as dest:
-                        written = 0
-                        while written < self.max_size:
-                            data = src.read(buffer)
-                            if data:
-                                dest.write(data)
-                                written += buffer
-                            else:
-                                if written == 0:
-                                    return  # file has ended on split size - don't yield
+        file_size = os.stat(input_file).st_size
+        with tqdm(total=file_size, leave=False, unit='B', unit_scale=True, unit_divisor=1024) as t:
+            configure_tqdm(t)
+            t.set_description('Splitting file')
 
-                                break
+            with open(input_file, 'rb') as src:
+                while True:
+                    with tempfile.NamedTemporaryFile() as f:
+                        with open(f.name, 'wb') as dest:
+                            written = 0
+                            while written < self.max_size:
+                                data = src.read(buffer)
+                                if data:
+                                    dest.write(data)
+                                    written += buffer
+                                    t.update(len(data))
+                                else:
+                                    if written == 0:
+                                        return  # file has ended on split size - don't yield
 
-                    yield f.name
+                                    break
+
+                        yield f.name
