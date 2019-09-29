@@ -2,6 +2,7 @@ import tempfile
 from unittest import TestCase
 from backup.core.controller import *
 from common.util import calculate_file_hash
+from backup.common.dircompare import DirCompare
 
 
 class TestBackupRestoreController(TestCase):
@@ -88,14 +89,7 @@ class TestBackupRestoreController(TestCase):
                         ctrl = RestoreController(GeneralSettings())
                         ctrl.execute(rst_params)
 
-                        for src_file in src_file_list:
-                            dest_file = restore_dir + os.sep + src_file[len(source_dir) + 1:]
-
-                            assert os.path.exists(dest_file)
-
-                            src_file_sha = calculate_file_hash(src_file)
-                            dest_file_sha = calculate_file_hash(dest_file)
-                            assert src_file_sha == dest_file_sha
+                        assert DirCompare(source_dir, restore_dir).compare()
 
     def test_backup_02(self):
         """ Backup (with many fragmented files) -> Restore -> check result """
@@ -126,11 +120,4 @@ class TestBackupRestoreController(TestCase):
                         ctrl = RestoreController(GeneralSettings())
                         ctrl.execute(rst_params)
 
-                        for src_file in src_file_list:
-                            dest_file = restore_dir + os.sep + src_file[len(source_dir) + 1:]
-
-                            assert os.path.exists(dest_file)
-
-                            src_file_sha = calculate_file_hash(src_file)
-                            dest_file_sha = calculate_file_hash(dest_file)
-                            assert src_file_sha == dest_file_sha
+                        assert DirCompare(source_dir, restore_dir).compare()
