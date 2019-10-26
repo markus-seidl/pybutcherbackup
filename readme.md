@@ -1,6 +1,12 @@
 
 # PyButcherBackup
 
+[![Build Status](https://travis-ci.org/markus-seidl/pybutcherbackup.svg?branch=master)](https://travis-ci.org/markus-seidl/pybutcherbackup)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=markus-seidl_pybutcherbackup&metric=alert_status)](https://sonarcloud.io/dashboard?id=markus-seidl_pybutcherbackup)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=markus-seidl_pybutcherbackup&metric=reliability_rating)](https://sonarcloud.io/dashboard?id=markus-seidl_pybutcherbackup)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=markus-seidl_pybutcherbackup&metric=coverage)](https://sonarcloud.io/dashboard?id=markus-seidl_pybutcherbackup)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=markus-seidl_pybutcherbackup&metric=bugs)](https://sonarcloud.io/dashboard?id=markus-seidl_pybutcherbackup)
+
 Simple backup that chops up a directory (including compression and encryption) into smaller chunks. 
 The main use case is backing up to a smaller medium (blu-ray) for cold storage.
 
