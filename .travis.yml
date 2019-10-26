@@ -1,10 +1,20 @@
 language: minimal
 dist: xenial
+arch:
+  - amd64
+  - arm64
+matrix:
+  include:
+   - os: linux
+     arch: amd64
+   - os: linux
+     arch: arm64
 services:
   - docker
 env:
   - secure: "qselefJ8/s8/NZFpArAVUlL61YK4dVZx7Wa+u3cNMiT+2IPX7fsM3ymR8JkxQbcOCPiriORmCjC+x/TLnhmBjPiGcR0qBLyeXugno/A7eGFVYe/KslY2y5B38FlmdLAyWi5lyJYUWQEcsBT9grl17ZOoY2uLShz2ZyqA8rCh3F8JBRBkv/QltArEhD20jGEJl+wLGjBqNouWLmJOG355bwlZ9kawnZqUm0LVWjh/Tft8hCJ1vi0+oPuNFGEPEOWuOBpMRB7ZFIv2tfUxjBbODP1kmi0pTyjrne2z57tabsjwSWtA/kGCs/vDbjKf4rq55D6zmTAMJRcHFG5HCdjBSMsrQePTPVfWLzpfQz8NUO9yqcYkDH6aCRCN1ARCW+6mMffnm/YURFmZKhRDhgiF7qHWF1t31FXl4BeqKE6B4BcQkYe3ZiQ9WuLj3lR8Fuj/+SBWyHjpoJyI2x8oMMctJ9quMKec/jSZ2bPADaSYt/ggBWhKFi3VV8WoD/+lww+eElGATrM0mPIPtk4McmmAP6DWOD3ZJfaldr3xzVfNBo4s+yePYJftcvaKMc0wi38VPlIYHRLp1IYT4y1nmO+vOA05wjcWmqZ0uB/5x/Rz2c++amsDHbzXI1MYC9VMsfASvoSezum2ollrLF0uwrGElN3CKhrm0xRrilIcQWrRo/E="
 script:
+  - export
   - ./cicd/run_coverage.sh
   - ./cicd/run_analyze.sh
 after_success:
