@@ -45,7 +45,7 @@ python main.py ...
 ## Using docker
 
 ```bash
-docker run -it <TODO> ...
+docker run -it -v <path-to-src>:/src -v <path-to-dest>:/dest augunrik/pybutcherbackup backup /src /dest
 ```
 
 # Example
