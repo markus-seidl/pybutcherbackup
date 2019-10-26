@@ -2,7 +2,7 @@
 # PyButcherBackup
 
 Simple backup that chops up a directory (including compression and encryption) into smaller chunks. 
-The main use case is backing up to a smaller medium (blu-ray). 
+The main use case is backing up to a smaller medium (blu-ray) for cold storage.
 
 
 # Workflow
@@ -22,3 +22,33 @@ Works in the following steps
     * Until a full blu-ray is reached
         * Burn all archives and the current state of the DB to disk
 * Continue until all differences have been stored
+
+# Installation
+
+## From source
+
+```bash
+git clone ...
+pip install -r requirements
+python main.py ...
+```
+
+## Using docker
+
+```bash
+docker run -it <TODO> ...
+```
+
+# Example
+
+## Backup
+
+````bash
+python main.py backup <src> <dest> --passphrase "password"
+````
+
+## Restore
+
+````bash
+python main.py restore <src> <dest> --passphrase "password"
+````

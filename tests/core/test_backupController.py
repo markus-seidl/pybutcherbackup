@@ -1,7 +1,5 @@
-import tempfile
 from unittest import TestCase
 from backup.core.controller import *
-from common.util import calculate_file_hash
 from backup.common.dircompare import DirCompare
 
 
