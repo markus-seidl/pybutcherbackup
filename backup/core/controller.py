@@ -8,7 +8,7 @@ from backup.common.logger import configure_logger
 from backup.common.util import copy_with_progress
 from backup.core.luke import LukeFilewalker
 from backup.core.archive import FileBulker, DefaultArchiver, ArchiveManager
-from backup.core.encryptor import GpgEncryptor
+from backup.core.encryptor import GpgEncryptor, Encryptor
 from backup.db.db import DatabaseManager, BackupDatabaseReader, BackupType, FileState, ArchiveEntry, FileEntry, \
     DiscEntry
 from backup.db.disc_number import DiscNumber
@@ -344,7 +344,7 @@ class RestoreController(BaseController):
                     if os.path.exists(archive_path):
                         relative_files = self._convert_to_archive_path(params, backup_reader,
                                                                        original_files_count.keys())
-                        self._decrypt_and_decompress(archive_path, archiver, params, relative_files)
+                        self._decrypt_and_decompress(archive_path, archiver, params, relative_files, encryptor)
 
                         # if the file is a partial file, we need to move it to the temp directory and mark it as such
                         # do not remove it from restore_files, as we need the other parts, before quitting
@@ -384,8 +384,14 @@ class RestoreController(BaseController):
         db.close_database()
         # TODO sanity check for the restored files?
 
-    def _decrypt_and_decompress(self, archive_path, archiver, params, relative_files):
-        archiver.decompress_files(archive_path, relative_files, params.destination)
+    def _decrypt_and_decompress(self, archive_path, archiver, params, relative_files, encryptor: Encryptor):
+        with tempfile.NamedTemporaryFile() as decrypted_file:
+            src_archive = archive_path
+            if encryptor:
+                encryptor.decrypt_file(src_archive, decrypted_file.name)
+                src_archive = decrypted_file.name
+
+            archiver.decompress_files(src_archive, relative_files, params.destination)
 
     def _finish_parts(self, params: RestoreParameters, partial: PartialFileInfo, file: FileEntry):
         archives = partial.archive_parts.keys()
