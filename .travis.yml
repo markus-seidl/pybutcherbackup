@@ -20,6 +20,6 @@ script:
 after_success:
   - if [[ "$TRAVIS_BRANCH" == "master" ]]; then
       docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD ;
-      docker build . -t augunrik/pybutcherbackup ;
-      docker push augunrik/pybutcherbackup ;
+      docker build . -t augunrik/pybutcherbackup:latest-${TRAVIS_ARCH} ;
+      docker push augunrik/pybutcherbackup:latest-${TRAVIS_ARCH} ;
     fi
