@@ -4,6 +4,9 @@
 Simple backup that chops up a directory (including compression and encryption) into smaller chunks. 
 The main use case is backing up to a smaller medium (blu-ray) for cold storage.
 
+Additionally the techniques used to encrypt and store the data should be "simple". Meaning that, if the 
+software is lost in the future (no one knows the future), the user is able to restore the files using bash
+and common apps. Currently only bash, tar, bz2 and gnupg (if encrypted) is needed. Sqlite is optional. 
 
 # Workflow
 
