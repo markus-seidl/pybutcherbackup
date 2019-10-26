@@ -55,10 +55,10 @@ class BaseController:
     def execute(self, params):
         raise RuntimeError("Please implement me.")
 
-    def _create_archiver(self, parameters) -> DefaultArchiver:  # TODO base type
+    def _create_archiver(self, parameters: BackupParameters) -> DefaultArchiver:  # TODO base type
         return DefaultArchiver()
 
-    def _create_encryptor(self, parameters) -> GpgEncryptor:  # TODO base type
+    def _create_encryptor(self, parameters: BackupParameters) -> GpgEncryptor:  # TODO base type
         if parameters.encryption_key is None:
             return None
         return GpgEncryptor(parameters.encryption_key)
@@ -66,10 +66,21 @@ class BaseController:
     def _find_database(self, parameters):
         return getattr(parameters, 'database_location', None)
 
+    def _valid_database_file(self, file):
+        return os.path.exists(file) and os.path.getsize(file) > 0
+
 
 class BackupController(BaseController):
     def execute(self, params: BackupParameters):
-        db = DatabaseManager(self._find_database(params))
+        encryptor = self._create_encryptor(params)
+        db_location = self._find_database(params)
+
+        if encryptor and self._valid_database_file(db_location):  # TODO untested
+            db_tmp_file = tempfile.NamedTemporaryFile()
+            encryptor.decrypt_file(db_location, db_tmp_file.name)
+            db_location = db_tmp_file.name
+
+        db = DatabaseManager(db_location)
 
         temp_archive_file = tempfile.NamedTemporaryFile()
 
@@ -87,8 +98,6 @@ class BackupController(BaseController):
             file_bulker = FileBulker(file_filter.iterator(), params.single_archive_size)
             archiver = self._create_archiver(params)
             archive_manager = ArchiveManager(file_bulker, temp_archive_file.name, archiver)
-
-            encryptor = self._create_encryptor(params)
 
             backup_writer = db.create_backup(params.backup_type)
 
@@ -115,17 +124,7 @@ class BackupController(BaseController):
                     backup_writer.map_file_to_archive(file_domain, archive_domain)
 
                 archive_name = self._create_archive_name(params, disc_domain, archive_domain)
-                archive_name += ".%s" % archiver.extension
-
-                # Copy archive to destination / TODO create archive at destination?
-                with tqdm(total=-1, leave=False, unit='B', unit_scale=True, unit_divisor=1024) as t:
-                    t.set_description('Copy archive to destination')
-                    copy_with_progress(archive_package.archive_file, archive_name, t)
-
-                final_archive_name = archive_name
-                if encryptor is not None:
-                    final_archive_name = archive_name + ".%s" % encryptor.extension
-                    encryptor.encrypt_file(archive_name, final_archive_name)
+                final_archive_name = self._encrypt_and_copy(archive_package, archiver, encryptor, archive_name)
 
                 self._update_archive(archive_domain, final_archive_name)
                 disc_size += self._get_size(final_archive_name)
@@ -151,6 +150,25 @@ class BackupController(BaseController):
         db.close_database()
         temp_archive_file.close()
         self._finish_backup(db, params, disc_directories, encryptor)
+
+    def _encrypt_and_copy(self, archive_package, archiver, encryptor, archive_name):
+        """Encrypt the archive file (if necessary) and copy it to the destination."""
+
+        # Encrypting the file locally is benifitable, as this reduces network traffic
+        with tempfile.NamedTemporaryFile() as encrypted_file:
+            archive_name += ".%s" % archiver.extension
+            final_archive_name = archive_name
+            src_file = archive_package.archive_file
+            if encryptor is not None:
+                final_archive_name = archive_name + ".%s" % encryptor.extension
+                encryptor.encrypt_file(src_file, encrypted_file.name)
+                src_file = encrypted_file.name
+
+            with tqdm(total=-1, leave=False, unit='B', unit_scale=True, unit_divisor=1024) as t:
+                t.set_description('Copy archive to destination')
+                copy_with_progress(src_file, final_archive_name, t)
+
+        return final_archive_name
 
     def _update_archive(self, archive_domain, final_archive_name):
         base_name = os.path.basename(final_archive_name)
@@ -184,7 +202,7 @@ class BackupController(BaseController):
         if encryptor:
             db_tmp_file = tempfile.NamedTemporaryFile()
             encryptor.encrypt_file(db_file, db_tmp_file.name)
-            db_file = db_tmp_file
+            db_file = db_tmp_file.name
             ext = "." + encryptor.extension
 
         for disc in disc_dirs:
@@ -292,7 +310,15 @@ class RestoreController(BaseController):
         return ret
 
     def execute(self, params: RestoreParameters):
-        db = DatabaseManager(self._find_database(params))
+        encryptor = self._create_encryptor(params)
+
+        db_location = self._find_database(params)
+        if encryptor and self._valid_database_file(db_location) and db_location.endswith(encryptor.extension):
+            db_tmp_file = tempfile.NamedTemporaryFile()
+            encryptor.decrypt_file(db_location, db_tmp_file.name)
+            db_location = db_tmp_file.name
+
+        db = DatabaseManager(db_location)
 
         with db.transaction() as txn:
             backup_reader = db.read_backup(None)
@@ -301,6 +327,8 @@ class RestoreController(BaseController):
             source_locator = self._create_source_locator(params)
             archiver = self._create_archiver(params)
             archive_ext = archiver.extension
+            if encryptor:
+                archive_ext = archive_ext + ".%s" % encryptor.extension
 
             partial_restored_files = dict()
             endless_loop_counter = len(restore_files)
@@ -316,7 +344,7 @@ class RestoreController(BaseController):
                     if os.path.exists(archive_path):
                         relative_files = self._convert_to_archive_path(params, backup_reader,
                                                                        original_files_count.keys())
-                        archiver.decompress_files(archive_path, relative_files, params.destination)
+                        self._decrypt_and_decompress(archive_path, archiver, params, relative_files)
 
                         # if the file is a partial file, we need to move it to the temp directory and mark it as such
                         # do not remove it from restore_files, as we need the other parts, before quitting
@@ -355,6 +383,9 @@ class RestoreController(BaseController):
 
         db.close_database()
         # TODO sanity check for the restored files?
+
+    def _decrypt_and_decompress(self, archive_path, archiver, params, relative_files):
+        archiver.decompress_files(archive_path, relative_files, params.destination)
 
     def _finish_parts(self, params: RestoreParameters, partial: PartialFileInfo, file: FileEntry):
         archives = partial.archive_parts.keys()

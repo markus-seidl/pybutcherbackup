@@ -14,7 +14,7 @@ class TestPyCryptoEncryptor(TestCase):
         with tempfile.NamedTemporaryFile() as source_file:
             with tempfile.NamedTemporaryFile() as encrypt_file:
                 with tempfile.NamedTemporaryFile() as decrypt_file:
-                    tar = PyCryptoEncryptor("0123456789123456")
+                    tar = PyCryptoEncryptor("0123456891&/!@ö")
 
                     self.create_test_file(source_file.name, 20)
 
@@ -37,7 +37,7 @@ class TestGpgEncryptor(TestCase):
         with tempfile.NamedTemporaryFile() as source_file:
             with tempfile.NamedTemporaryFile() as encrypt_file:
                 with tempfile.NamedTemporaryFile() as decrypt_file:
-                    tar = GpgEncryptor("0123456789123456")
+                    tar = GpgEncryptor("01 2345678 91234 56&/!@ö")
 
                     self.create_test_file(source_file.name, 20)
 

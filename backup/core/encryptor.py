@@ -67,7 +67,8 @@ class GpgEncryptor(Encryptor):
         cmd.append("--output %s" % out_filename)
         cmd.append("-c")
         cmd.append("--cipher-algo AES256")
-        cmd.append("--passphrase %s" % self.key)
+        cmd.append("--passphrase")
+        cmd.append("'%s'" % self.key)
         cmd.append(in_filename)
 
         process = self._open_subprocess(cmd)
@@ -76,6 +77,8 @@ class GpgEncryptor(Encryptor):
 
         self._collect_output(process, result)
         result.retval = process.wait()
+
+        assert result.retval == 0, "GPG aborted with an error for file <%s>" % in_filename
 
         return result
 
@@ -88,7 +91,8 @@ class GpgEncryptor(Encryptor):
         cmd.append("--yes")  # needed because in tests the output file already exists
         cmd.append("--output %s" % out_filename)
         cmd.append("-d")
-        cmd.append("--passphrase %s" % self.key)
+        cmd.append("--passphrase")
+        cmd.append("'%s'" % self.key)
         cmd.append(in_filename)
 
         process = self._open_subprocess(cmd)
@@ -97,6 +101,8 @@ class GpgEncryptor(Encryptor):
 
         self._collect_output(process, result)
         result.retval = process.wait()
+
+        assert result.retval == 0, "GPG aborted with an error for file <%s>" % in_filename
 
         return result
 

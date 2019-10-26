@@ -32,11 +32,13 @@ def cli_restore():
 @click.argument('src', type=click.Path(exists=True))
 @click.argument('dest', type=click.Path(exists=True))
 @click.option("--index", help='Path to the index to use.', default=None)
-def action_backup(src: str, dest: str, index: str):
+@click.option("--passphrase", help='Passphrase to use on the backup', default=None)
+def action_backup(src: str, dest: str, index: str, passphrase: str):
     # Dummy backup code
     bp = BackupParameters()
     bp.source = src
     bp.destination = dest
+    bp.encryption_key = passphrase
     if index:
         bp.database_location = index  # TODO path should be relative to source?
 
