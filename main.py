@@ -1,10 +1,14 @@
 import logging
+import os
+
+import tempfile
 
 import click
 
 from backup.core.controller import GeneralSettings
 from backup.core.controller import BackupController, BackupParameters
 from backup.core.controller import RestoreController, RestoreParameters
+from backup.core.encryptor import GpgEncryptor
 from backup.common.logger import configure_logger
 from backup.db.db import DatabaseManager
 
@@ -47,9 +51,21 @@ def action_backup(src: str, dest: str, index: str, passphrase: str):
 
 
 @cli_base.command('list-files')
+@click.option("--passphrase", help='Passphrase to use on the backup', default=None)
 @click.argument("index")
-def action_list_files(index):
-    db = DatabaseManager(index)
+def action_list_files(passphrase: str, index: str):
+    if not os.path.exists(index):
+        print("Database not found <%s>" % index)
+        return
+
+    index_file = index
+    if passphrase:
+        e = GpgEncryptor(passphrase)
+        index_file = tempfile.NamedTemporaryFile().name
+        e.decrypt_file(index, index_file)
+        print(index_file)
+
+    db = DatabaseManager(index_file)
     reader = db.read_backup(None)
 
     af = reader.all_files
