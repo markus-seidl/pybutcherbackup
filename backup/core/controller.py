@@ -18,6 +18,7 @@ DEFAULT_DATABASE_FILENAME = "index.sqlite"
 
 logger = configure_logger(logging.getLogger(__name__))
 
+NUMBER_TO_FILE_FORMAT = "%010i"
 
 class GeneralSettings:
     def __init__(self):
@@ -183,11 +184,11 @@ class BackupController(BaseController):
         return os.stat(file).st_size
 
     def _create_disc_name(self, parameters, disc_domain):
-        return parameters.destination + os.sep + "%05i" % disc_domain.number
+        return parameters.destination + os.sep + NUMBER_TO_FILE_FORMAT % disc_domain.number
 
     def _create_archive_name(self, parameters, disc_domain, archive_domain):
         d = self._create_disc_name(parameters, disc_domain)
-        return d + os.sep + "%05i" % archive_domain.number
+        return d + os.sep + NUMBER_TO_FILE_FORMAT % archive_domain.number
 
     def _create_disc_dir(self, parameters, disc_domain):
         disc_dir = self._create_disc_name(parameters, disc_domain)
@@ -229,12 +230,12 @@ class RestoreSourceLocator:
 class DirectorySourceLocator(RestoreSourceLocator):
 
     def _create_disc_name(self, parameters, disc_domain):  # TODO this is duplicated to backupcontroller, rename to path
-        return parameters.source + os.sep + "%05i" % disc_domain.number
+        return parameters.source + os.sep + NUMBER_TO_FILE_FORMAT % disc_domain.number
 
     def _create_archive_name(self, parameters, disc_domain,
                              archive_domain, ext):  # TODO this is duplicated to backupcontroller, rename to path
         d = self._create_disc_name(parameters, disc_domain)
-        return d + os.sep + "%05i" % archive_domain.number + (".%s" % ext)
+        return d + os.sep + NUMBER_TO_FILE_FORMAT % archive_domain.number + (".%s" % ext)
 
     def available_sources(self, params: RestoreParameters, backup_reader: BackupDatabaseReader, restore_files: [str],
                           ext) -> [str]:
