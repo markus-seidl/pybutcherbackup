@@ -42,7 +42,7 @@ class TestBackupDatabaseReader(unittest.TestCase):
 
             # write diff backup
             with db_manager.transaction():
-                backup_manager = db_manager.create_backup(BackupType.DIFFERENTIAL)
+                backup_manager = db_manager.create_backup(BackupType.INCREMENTAL)
 
                 disc01 = backup_manager.create_disc()
 
@@ -56,7 +56,7 @@ class TestBackupDatabaseReader(unittest.TestCase):
 
             # write diff backup
             with db_manager.transaction():
-                backup_manager = db_manager.create_backup(BackupType.DIFFERENTIAL)
+                backup_manager = db_manager.create_backup(BackupType.INCREMENTAL)
 
                 disc01 = backup_manager.create_disc()
 
@@ -68,9 +68,9 @@ class TestBackupDatabaseReader(unittest.TestCase):
             af = bm.all_files
 
             assert len(af) == 3
-            assert dto_file01_diff_01_01.original_file() in af  # file created in 1. diff backup
-            assert dto_file01_full_01_01.original_file() in af  # file created in 1 full, and not mentioned in 2. diff
-            assert dto_file01_full_02_01.original_file() in af  # file created - deleted - created
+            assert dto_file01_diff_01_01.original_file in af  # file created in 1. diff backup
+            assert dto_file01_full_01_01.original_file in af  # file created in 1 full, and not mentioned in 2. diff
+            assert dto_file01_full_02_01.original_file in af  # file created - deleted - created
 
     def create_dummy_file(self, idx) -> FileEntryDTO:
         ret = FileEntryDTO()

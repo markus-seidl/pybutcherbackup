@@ -27,6 +27,7 @@ class FileEntryDTO:
         self.size = -1
         """Original size in bytes."""
 
+    @property
     def original_file(self):
         return self.original_path + os.sep + self.original_filename
 

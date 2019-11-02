@@ -35,7 +35,7 @@ class BackupParameters:
         """Single Archive size in bytes"""
         self.disc_size = 1024 * 1024 * 1024 * 44  # 44 GB
         """Size of one backup disc"""
-        self.backup_type = BackupType.DIFFERENTIAL
+        self.backup_type = BackupType.INCREMENTAL
         self.encryption_key = None
 
 
@@ -118,7 +118,7 @@ class BackupController(BaseController):
                 archive_domain = backup_writer.create_archive(disc_domain)
                 for file_dto in archive_package.file_package:
                     # files must be new / updated. deleted files are filtered and handled later
-                    old_file = backup_reader.find_original_file(file_dto.original_file())
+                    old_file = backup_reader.find_original_file(file_dto.original_file)
                     state = FileState.NEW if old_file is None else FileState.UPDATED
                     file_domain = backup_writer.create_file_from_dto(file_dto, state)
                     backup_writer.map_file_to_archive(file_domain, archive_domain)
@@ -133,8 +133,12 @@ class BackupController(BaseController):
                 self._finish_disc(params, disc_directory, disc_domain)
 
             # find out which files where deleted
-            for file in backup_reader.all_files:
-                if file.relative_path not in file_filter.handled_files:
+            for key in backup_reader.all_files:
+                file = backup_reader.all_files[key]
+                fr = file.relative_path
+                if fr in file_filter.filtered_files:
+                    pass  # file not changed, don't record it
+                elif fr not in file_filter.handled_files:
                     backup_writer.create_file(
                         file.original_path,
                         file.original_filename,
@@ -424,20 +428,20 @@ class FileFilter:
     def __init__(self, backup_reader: BackupDatabaseReader, file_iterator):
         self._backup_reader = backup_reader
         self._file_iterator = file_iterator
-        self.filtered_files = list()
+        self.filtered_files = dict()
         self.handled_files = dict()
 
     def iterator(self):
         br = self._backup_reader
         for file in self._file_iterator:
-            fp = br.find_original_file(file.relative_path)
+            fp = br.find_original_file(file.original_file)
 
             fs = False
             if fp:
                 fs = fp.sha_sum == file.sha_sum
 
-            if fp and not fs:
-                self.filtered_files.append(file)
+            if fp and fs:
+                self.filtered_files[file.relative_path] = file
                 continue
 
             self.handled_files[file.relative_path] = file

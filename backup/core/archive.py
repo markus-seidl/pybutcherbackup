@@ -77,7 +77,7 @@ class DefaultArchiver:
                 t.set_description('Compressing files')
 
                 for file in t:
-                    src_path = file.original_file()
+                    src_path = file.original_file
                     bck_path = file.relative_path
 
                     t.set_postfix(file=file.relative_path)
@@ -135,7 +135,7 @@ class ArchiveManager:
                     configure_tqdm(t)
                     t.set_description('Compressing part')
 
-                    for split_file in self.split_file(file.original_file()):
+                    for split_file in self.split_file(file.original_file):
                         t.set_postfix(file=file.relative_path)
                         t.unpause()
                         self.archiver.compress_file(split_file, file, self.temp_archive_file)

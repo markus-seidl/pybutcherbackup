@@ -16,7 +16,7 @@ class FileState(Enum):
 
 class BackupType(Enum):
     FULL = "FULL"
-    DIFFERENTIAL = "DIFF"
+    INCREMENTAL = "INC"
 
 
 @auto_str
