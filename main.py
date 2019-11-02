@@ -2,6 +2,7 @@ import logging
 import os
 
 import tempfile
+import re
 
 import click
 
@@ -98,12 +99,21 @@ def action_list_files(passphrase: str, index: str):
 @click.argument('dest', type=click.Path(exists=True))
 @click.option("--index", help='Path to the index to use.', default=None)
 @click.option("--passphrase", help='Passphrase to use on the backup', default=None)
-def action_restore(src: str, dest: str, index: str, passphrase: str):
+@click.option("--filter", help='Regex to filter the restored filepath/name for. Use quotes to escape the string.', default=".*")
+def action_restore(src: str, dest: str, index: str, passphrase: str, filter: str):
+    # input validation
+    if filter:
+        regex = re.compile(filter)  # if this fails, regex is incorrect
+        if not regex:
+            print("Regex invalid.")  # TODO is this necessary?
+            return
+
     # dummy restore code
     rp = RestoreParameters()
     rp.source = src
     rp.destination = dest
     rp.encryption_key = passphrase
+    rp.restore_glob = filter
     if index:
         rp.database_location = index
 

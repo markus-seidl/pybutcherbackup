@@ -39,6 +39,7 @@ class BackupEntry(BaseModel):
     backups = ForeignKeyField(BackupsEntry, backref='backups')
     _type = TextField(null=False)
     """Backup type (e.g. full, diff, ...)"""
+    version = IntegerField(default=1)  # current backup data model version
 
     # TODO State (started, completed)
 

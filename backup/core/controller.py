@@ -240,6 +240,8 @@ class DirectorySourceLocator(RestoreSourceLocator):
                 backup_reader.find_original_file(original_file)
             )
 
+            # TODO Maybe this search should find every archive in any subdir (like os.walk) and validate by file name?
+
             found_all = True
             for archive in archives:
                 expected_path = self._create_archive_name(params, archive.disc, archive, ext)
