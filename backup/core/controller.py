@@ -65,7 +65,11 @@ class BaseController:
         return GpgEncryptor(parameters.encryption_key)
 
     def _find_database(self, parameters):
-        return getattr(parameters, 'database_location', None)
+        db_loc = str(getattr(parameters, 'database_location', None))
+        if not db_loc.startswith('/'):  # assume path is relative to destination directory
+            db_loc = os.path.join(parameters.destination, db_loc)
+
+        return db_loc
 
     def _valid_database_file(self, file):
         return os.path.exists(file) and os.path.getsize(file) > 0
