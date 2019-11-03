@@ -29,8 +29,6 @@ class BaseModel(Model):
 @auto_str
 class BackupsEntry(BaseModel):
     pass
-    # def __init__(self, *args, **kwargs):
-    #    super().__init__(*args, **kwargs)
 
 
 @auto_str
@@ -57,42 +55,14 @@ class BackupEntry(BaseModel):
 
 @auto_str
 class DiscEntry(BaseModel):
-    number = IntegerField()
     backup = ForeignKeyField(BackupEntry, backref='discs')
-
-    # number = None
-    # """Number of disc in backup."""
-    # archives = None
-    # """List of ArchiveEntry s."""
-
-    # def __init__(self, *args, **kwargs):
-    # self.archives = list()
-    #    super().__init__(*args, **kwargs)
-
-    # def size(self):
-    #     ret = 0
-    #     for archive in self.archives:
-    #         ret += archive.size
-    #
-    #     return ret
 
 
 @auto_str
 class ArchiveEntry(BaseModel):
-    number = IntegerField()
     disc = ForeignKeyField(DiscEntry, backref='archives')
     name = TextField(null=True)
 
-
-# number = None
-# """Number of the archive on the disc."""
-# files = None
-# """List of FileEntry s inside this archive."""
-# size = None
-# """Size of the compressed archive."""
-#
-# def __init__(self):
-#     self.files = list()
 
 @auto_str
 class FileEntry(BaseModel):
@@ -107,15 +77,6 @@ class FileEntry(BaseModel):
     @property
     def original_file(self):
         return self.original_filepath + os.sep + self.original_filename
-
-    # def __init__(self):
-    #     self.archives = list()
-    #
-    # def original_file(self):
-    #     return os.path.join(self.originalFilepath, self.originalFilename)
-    #
-    # def __repr__(self):
-    #     return "(%s, %s, %s)" % (self.originalFilepath, self.originalFilename, self.shaSum)
 
 
 @auto_str

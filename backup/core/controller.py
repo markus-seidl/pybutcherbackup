@@ -11,7 +11,7 @@ from backup.core.archive import FileBulker, DefaultArchiver, ArchiveManager
 from backup.core.encryptor import GpgEncryptor, Encryptor
 from backup.db.db import DatabaseManager, BackupDatabaseReader, BackupType, FileState, ArchiveEntry, FileEntry, \
     DiscEntry
-from backup.db.disc_number import DiscNumber
+from backup.db.disc_id import DiscId
 from tqdm import tqdm
 
 DEFAULT_DATABASE_FILENAME = "index.sqlite"
@@ -20,10 +20,11 @@ logger = configure_logger(logging.getLogger(__name__))
 
 NUMBER_TO_FILE_FORMAT = "%010i"
 
+
 class GeneralSettings:
     def __init__(self):
         self.database_name = DEFAULT_DATABASE_FILENAME
-        self.index_filename = "disc_number.yml"
+        self.index_filename = "disc_id.yml"
 
 
 class BackupParameters:
@@ -56,13 +57,14 @@ class BaseController:
     def execute(self, params):
         raise RuntimeError("Please implement me.")
 
-    def _create_archiver(self, parameters: BackupParameters) -> DefaultArchiver:  # TODO base type
+    def _create_archiver(self, parameters) -> DefaultArchiver:
         return DefaultArchiver()
 
-    def _create_encryptor(self, parameters: BackupParameters) -> GpgEncryptor:  # TODO base type
-        if parameters.encryption_key is None:
+    def _create_encryptor(self, parameters) -> GpgEncryptor:
+        encryption_key = getattr(parameters, 'encryption_key', None)
+        if encryption_key is None:
             return None
-        return GpgEncryptor(parameters.encryption_key)
+        return GpgEncryptor(encryption_key)
 
     def _find_database(self, parameters):
         db_loc = str(getattr(parameters, 'database_location', None))
@@ -72,6 +74,7 @@ class BaseController:
         return db_loc
 
     def _valid_database_file(self, file):
+        # TODO this is very primitive, but can handle encrypted databases simply.
         return os.path.exists(file) and os.path.getsize(file) > 0
 
 
@@ -80,7 +83,7 @@ class BackupController(BaseController):
         encryptor = self._create_encryptor(params)
         db_location = self._find_database(params)
 
-        if encryptor and self._valid_database_file(db_location):  # TODO untested
+        if encryptor and self._valid_database_file(db_location):
             db_tmp_file = tempfile.NamedTemporaryFile()
             encryptor.decrypt_file(db_location, db_tmp_file.name)
             db_location = db_tmp_file.name
@@ -188,11 +191,11 @@ class BackupController(BaseController):
         return os.stat(file).st_size
 
     def _create_disc_name(self, parameters, disc_domain):
-        return parameters.destination + os.sep + NUMBER_TO_FILE_FORMAT % disc_domain.number
+        return parameters.destination + os.sep + NUMBER_TO_FILE_FORMAT % disc_domain.id
 
     def _create_archive_name(self, parameters, disc_domain, archive_domain):
         d = self._create_disc_name(parameters, disc_domain)
-        return d + os.sep + NUMBER_TO_FILE_FORMAT % archive_domain.number
+        return d + os.sep + NUMBER_TO_FILE_FORMAT % archive_domain.id
 
     def _create_disc_dir(self, parameters, disc_domain):
         disc_dir = self._create_disc_name(parameters, disc_domain)
@@ -201,7 +204,7 @@ class BackupController(BaseController):
 
     def _finish_disc(self, parameters, disc_directory: str, disc_domain: DiscEntry):
         out_file = disc_directory + os.sep + self.general_settings.index_filename
-        DiscNumber(disc_domain.id, disc_domain.number).serialize(out_file)
+        DiscId(disc_domain.id).serialize(out_file)
 
     def _finish_backup(self, db: DatabaseManager, params: BackupParameters, disc_dirs: list, encryptor: GpgEncryptor):
         db_file = db.file_name
@@ -234,32 +237,51 @@ class RestoreSourceLocator:
 class DirectorySourceLocator(RestoreSourceLocator):
 
     def _create_disc_name(self, parameters, disc_domain):  # TODO this is duplicated to backupcontroller, rename to path
-        return parameters.source + os.sep + NUMBER_TO_FILE_FORMAT % disc_domain.number
+        return parameters.source + os.sep + NUMBER_TO_FILE_FORMAT % disc_domain.id
 
-    def _create_archive_name(self, parameters, disc_domain,
-                             archive_domain, ext):  # TODO this is duplicated to backupcontroller, rename to path
+    def _create_archive_name(self, parameters, disc_domain, archive_domain, ext):
+        # TODO this is duplicated to backupcontroller, rename to path
         d = self._create_disc_name(parameters, disc_domain)
-        return d + os.sep + NUMBER_TO_FILE_FORMAT % archive_domain.number + (".%s" % ext)
+        return d + os.sep + NUMBER_TO_FILE_FORMAT % archive_domain.id + (".%s" % ext)
+
+    @staticmethod
+    def try_parse_int(value):
+        try:
+            return int(value), True
+        except ValueError:
+            return value, False
 
     def available_sources(self, params: RestoreParameters, backup_reader: BackupDatabaseReader, restore_files: [str],
                           ext) -> [str]:
+        """Every archive file name is like an ID. Try to find it in the specified directory or subdirectories."""
+
+        all_files = dict()
+        for subdir, dirs, files in os.walk(params.source):
+            for file in files:
+                if file.endswith(ext):
+                    # extract id from file name
+                    pos_id, could_parse = self.try_parse_int(file[:-len(ext) - 1])
+
+                    if could_parse:
+                        f = os.path.join(subdir, file)
+                        all_files[pos_id] = f
+
         found_files = list()
         for original_file in restore_files:
             file, state, archives, backup = backup_reader.find_coordinates(
                 backup_reader.find_original_file(original_file)
             )
 
-            # TODO Maybe this search should find every archive in any subdir (like os.walk) and validate by file name?
-
             found_all = True
             for archive in archives:
-                expected_path = self._create_archive_name(params, archive.disc, archive, ext)
-                found_all = found_all and os.path.exists(expected_path)
-                # TODO also add if only one archive was found (think multiple, different discs)
+                found_all = found_all and archive.id in all_files
+
             if found_all:
                 found_files.append(original_file)
+            else:
+                print(original_file)
 
-        return found_files
+        return found_files, all_files
 
     def find_archive(self, params: RestoreParameters, backup_reader: BackupDatabaseReader, archive: ArchiveEntry, ext) \
             -> str:
@@ -342,15 +364,15 @@ class RestoreController(BaseController):
                 archive_ext = archive_ext + ".%s" % encryptor.extension
 
             partial_restored_files = dict()
-            endless_loop_counter = len(restore_files)
+            endless_loop_counter = len(restore_files) * 10
             while len(restore_files) > 0:
-                available_files = source_locator.available_sources(params, backup_reader, restore_files, archive_ext)
+                available_files, list_of_archives = source_locator.available_sources(params, backup_reader, restore_files, archive_ext)
                 file_map = self._group_by_archive(backup_reader, available_files)
 
                 for archive_id in file_map:  # ( archive.id, [original_file] )
                     archive_entry, original_files_count = file_map[archive_id]  # archive, {original_file: part_count}
 
-                    archive_path = source_locator.find_archive(params, backup_reader, archive_entry, archive_ext)
+                    archive_path = list_of_archives[archive_id]
                     # Files can occur in multiple archives, check if this archive is available
                     if os.path.exists(archive_path):
                         relative_files = self._convert_to_archive_path(params, backup_reader,
@@ -406,7 +428,7 @@ class RestoreController(BaseController):
 
     def _finish_parts(self, params: RestoreParameters, partial: PartialFileInfo, file: FileEntry):
         archives = partial.archive_parts.keys()
-        sorted_archives = sorted(archives, key=lambda a: a.number)
+        sorted_archives = sorted(archives, key=lambda a: a.id)
 
         output_file_path = params.destination + os.sep + file.relative_path
         for archive in sorted_archives:

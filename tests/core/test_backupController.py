@@ -93,7 +93,7 @@ class TestBackupRestoreController(TestCase):
                             assert ok, "Found file that was not expected <%s>" % file
 
     def test_backup_02(self):
-        """ Backup -> validate backup structure (unencrypted) """
+        """ Backup -> validate backup structure (encrypted) """
         bck_params = BackupParameters()
         bck_params.encryption_key = "encrypt me hard!"
         expected_extensions = ['tar.bz2.gpg', 'sqlite.gpg', 'yml']
@@ -227,11 +227,16 @@ class TestBackupRestoreController(TestCase):
         bck_params.disc_size = bck_params.single_archive_size
 
         with tempfile.NamedTemporaryFile() as db_filename:
-            with tempfile.TemporaryDirectory() as destination_dir:
+            with tempfile.TemporaryDirectory() as destination_root:
+                destination_dir1 = destination_root + "/0"
+                os.mkdir(destination_dir1)
+                destination_dir2 = destination_root + "/1"
+                os.mkdir(destination_dir2)
+
                 with tempfile.TemporaryDirectory() as source_dir:
                     bck_params.database_location = db_filename.name
                     bck_params.source = source_dir
-                    bck_params.destination = destination_dir
+                    bck_params.destination = destination_dir1
 
                     src_file_list = self.create_sourceStructure(source_dir, [10, 10])
                     ctrl = BackupController(GeneralSettings())
@@ -243,33 +248,31 @@ class TestBackupRestoreController(TestCase):
                     # change the source
                     self.create_test_file(src_file_list[0], -1)
 
-                    with tempfile.TemporaryDirectory() as destination_dir2:
-                        bck_params = BackupParameters()
-                        bck_params.database_location = db_filename.name
-                        bck_params.source = source_dir
-                        bck_params.single_archive_size = 1050
-                        bck_params.disc_size = bck_params.single_archive_size
-                        bck_params.destination = destination_dir2
+                    bck_params = BackupParameters()
+                    bck_params.database_location = db_filename.name
+                    bck_params.source = source_dir
+                    bck_params.single_archive_size = 1050
+                    bck_params.disc_size = bck_params.single_archive_size
+                    bck_params.destination = destination_dir2
 
-                        ctrl = BackupController(GeneralSettings())
+                    ctrl = BackupController(GeneralSettings())
 
-                        # Preparations complete start backup...
-                        ctrl.execute(bck_params)
-                        # ... backup ended.
+                    # Preparations complete start backup...
+                    ctrl.execute(bck_params)
+                    # ... backup ended.
 
-                        for subdir, dirs, files in os.walk(destination_dir2):
-                            assert len(dirs) != 0 or len(files) != 0, \
-                                "There should be directories <%s> or files <%s>" % (dirs, files)
+                    for subdir, dirs, files in os.walk(destination_dir2):
+                        assert len(dirs) != 0 or len(files) != 0, \
+                            "There should be directories <%s> or files <%s>" % (dirs, files)
 
-                        # TODO this needs multiple restore directories, which is currently not supported
-                        # with tempfile.TemporaryDirectory() as restore_dir:
-                        #     rst_params = RestoreParameters()
-                        #     rst_params.database_location = db_filename.name
-                        #     rst_params.source = destination_dir
-                        #     rst_params.destination = restore_dir
-                        #     rst_params.encryption_key = bck_params.encryption_key
-                        #
-                        #     ctrl = RestoreController(GeneralSettings())
-                        #     ctrl.execute(rst_params)
-                        #
-                        #     assert DirCompare(source_dir, restore_dir).compare()
+                    with tempfile.TemporaryDirectory() as restore_dir:
+                        rst_params = RestoreParameters()
+                        rst_params.database_location = db_filename.name
+                        rst_params.source = destination_root
+                        rst_params.destination = restore_dir
+                        rst_params.encryption_key = bck_params.encryption_key
+
+                        ctrl = RestoreController(GeneralSettings())
+                        ctrl.execute(rst_params)
+
+                        assert DirCompare(source_dir, restore_dir).compare()

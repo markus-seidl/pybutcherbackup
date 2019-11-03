@@ -19,12 +19,10 @@ class DomainTest(TestCase):
                 )
 
                 disc = DiscEntry.create(
-                    number=1,
                     backup=backup
                 )
 
                 archive = ArchiveEntry.create(
-                    number=1,
                     disc=disc
                 )
 
