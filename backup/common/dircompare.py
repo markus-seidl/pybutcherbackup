@@ -35,6 +35,6 @@ class DirCompare:
         luke = LukeFilewalker(False)
         ret = dict()
         for file in luke.walk_directory(directory, True):
-            ret[file.relative_path] = file
+            ret[file.relative_file] = file
 
         return ret

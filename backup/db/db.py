@@ -14,7 +14,7 @@ class BackupDatabaseWriter:
     def __init__(self, backup_root):
         self.backup_root = backup_root
         self.files = dict()
-        """Map of all registered files (relative_path, FileEntry)"""
+        """Map of all registered files (relative_file, FileEntry)"""
         self.archive_number = 0
         """Number of registered archives."""
         self.disc_number = 0
@@ -22,39 +22,33 @@ class BackupDatabaseWriter:
 
     def create_file_from_dto(self, file: FileEntryDTO, state: FileState) -> FileEntry:
         return self.create_file(
-            file.original_path,
-            file.original_filename,
             file.sha_sum,
             file.modified_time,
-            file.relative_path,
+            file.relative_file,
             file.size,
             state
         )
 
-    def create_file(self, original_path,
-                    original_filename,
+    def create_file(self,
                     sha_sum,
                     modified_time,
-                    relative_path,
+                    relative_file,
                     size, state: FileState) -> FileEntry:
         """Creates the database representation and automagically registers the file to the current backup."""
         # Prevent duplication of files
-        original_file = original_path + os.sep + original_filename
-        if original_file in self.files:
-            return self.get_file(original_file)
+        if relative_file in self.files:
+            return self.get_file(relative_file)
 
         file = FileEntry.create(
-            original_filepath=original_path,
-            original_filename=original_filename,
             sha_sum=sha_sum,
             modified_time=modified_time,
-            relative_path=relative_path,
+            relative_file=relative_file,
             size=size,
             archive_map=None,
             backup=None
         )
 
-        self.files[original_file] = file
+        self.files[relative_file] = file
         self.map_file_to_backup(file, state)
 
         return file
@@ -124,7 +118,7 @@ class BackupDatabaseReader:
 
         backups.reverse()
         # generate full file list
-        file_original_file = dict()
+        file_relative_file = dict()
         file_sha = dict()
 
         # guess records to process
@@ -143,22 +137,22 @@ class BackupDatabaseReader:
                         info = BackupDatabaseReader.FileInfo(
                             backup_file_map.file, backup_file_map.state, backup
                         )
-                        file_original_file[f.original_file] = info
+                        file_relative_file[f.relative_file] = info
                     elif backup_file_map.state == FileState.DELETED:
-                        del file_original_file[f.original_file]
+                        del file_relative_file[f.relative_file]
 
                     t.update(1)
 
-        return BackupDatabaseReader(file_original_file, file_sha)
+        return BackupDatabaseReader(file_relative_file, file_sha)
 
-    def __init__(self, file_original_file: {str: FileInfo}, file_sha: {str: FileInfo}):
-        self._all_files = file_original_file
+    def __init__(self, file_relative_file: {str: FileInfo}, file_sha: {str: FileInfo}):
+        self._all_files = file_relative_file
         self._all_sha = file_sha
 
     @property
     def all_files(self) -> {str: FileEntry}:
         """
-        :return: original_file() : FileEntry
+        :return: relative_file() : FileEntry
         """
         ret = dict()
         for key in self._all_files:
@@ -166,11 +160,11 @@ class BackupDatabaseReader:
 
         return ret
 
-    def find_original_file(self, original_file) -> FileEntry:
-        if original_file not in self._all_files:
+    def find_relative_file(self, relative_file) -> FileEntry:
+        if relative_file not in self._all_files:
             return None
 
-        return self._all_files[original_file].file
+        return self._all_files[relative_file].file
 
     def find_coordinates(self, file: FileEntry) -> (FileEntry, FileState, [ArchiveEntry], BackupEntry):
         """
@@ -178,10 +172,10 @@ class BackupDatabaseReader:
         :param file:
         :return: file, state, [archive], backup
         """
-        if file.original_file not in self._all_files:
+        if file.relative_file not in self._all_files:
             return None, None, None, None
 
-        fi = self._all_files[file.original_file]
+        fi = self._all_files[file.relative_file]
         return fi.file, fi.state, fi.archives, fi.backup
 
     @property
@@ -215,6 +209,7 @@ class DatabaseManager:
             )
 
     def close_database(self):
+        self.database.execute_sql('VACUUM main')
         self.database.close()
 
     def all_backups(self):

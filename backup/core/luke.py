@@ -22,7 +22,7 @@ class FileEntryDTO:
         """SHA256 hash before backup."""
         self.modified_time = None
         """Modification time at time of backup (timestamp)"""
-        self.relative_path = None
+        self.relative_file = None
         """The relative path of this file to the specified backup root."""
         self.size = -1
         """Original size in bytes."""
@@ -32,7 +32,7 @@ class FileEntryDTO:
         return self.original_path + os.sep + self.original_filename
 
     def __repr__(self):
-        return "<relative_file='%s'>" % self.relative_path
+        return "<relative_file='%s'>" % self.relative_file
 
 
 class LukeFilewalker:
@@ -59,7 +59,7 @@ class LukeFilewalker:
 
             return sha256_hash.hexdigest()
 
-    def _find_relative_path(self, backup_dir: str, original_file_path: str) -> str:
+    def _find_relative_file(self, backup_dir: str, original_file_path: str) -> str:
         return original_file_path[len(backup_dir):]
 
     def file_generator(self, directory: str) -> (str, str):
@@ -101,13 +101,13 @@ class LukeFilewalker:
 
                 e.size = os.stat(f).st_size
                 e.modified_time = os.path.getmtime(f)
-                e.relative_path = self._find_relative_path(directory, f)
+                e.relative_file = self._find_relative_file(directory, f)
 
                 if calculate_sha:
                     e.sha_sum = self.calculate_hash(f, e.size)
 
                 # logger.debug("Found file <%s> (sha=%s, modified_time=%s, size=%s)"
-                #              % (e.relative_path, e.sha_sum, e.modified_time, e.size)
+                #              % (e.relative_file, e.sha_sum, e.modified_time, e.size)
                 #           )
                 t.update(1)
 

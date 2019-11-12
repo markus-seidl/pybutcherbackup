@@ -67,7 +67,7 @@ class DefaultArchiver:
 
     def compress_file(self, override_file, file_entry: FileEntryDTO, output_archive):
         with tarfile.open(output_archive, self.open_spec) as tar:
-            bck_path = file_entry.relative_path
+            bck_path = file_entry.relative_file
             tar.add(override_file, arcname=bck_path)
 
     def compress_files(self, input_files: [FileEntryDTO], output_archive):
@@ -78,16 +78,16 @@ class DefaultArchiver:
 
                 for file in t:
                     src_path = file.original_file
-                    bck_path = file.relative_path
+                    bck_path = file.relative_file
 
-                    t.set_postfix(file=file.relative_path)
+                    t.set_postfix(file=file.relative_file)
                     tar.add(src_path, arcname=bck_path)
                     t.update(1)
 
     def decompress_files(self, source_archive: str, relative_files: [str], output_dir: str):
         with tarfile.open(source_archive, 'r:*') as tar:
-            for relative_path in relative_files:
-                temp = relative_path
+            for relative_file in relative_files:
+                temp = relative_file
                 if temp[0] == '/':  # remove leading slash, because tar does this also internally
                     temp = temp[1:]
 
@@ -136,7 +136,7 @@ class ArchiveManager:
                     t.set_description('Compressing part')
 
                     for split_file in self.split_file(file.original_file):
-                        t.set_postfix(file=file.relative_path)
+                        t.set_postfix(file=file.relative_file)
                         t.unpause()
                         self.archiver.compress_file(split_file, file, self.temp_archive_file)
                         t.update(1)

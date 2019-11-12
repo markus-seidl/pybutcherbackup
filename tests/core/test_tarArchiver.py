@@ -25,20 +25,20 @@ class TestDefaultArchiver(TestCase):
             with tempfile.NamedTemporaryFile() as src_file:
                 self.create_test_file(src_file.name)
 
-                relative_path = "/rel/ative_path"
+                relative_file = "/rel/ative_path"
 
                 file_entry = FileEntryDTO()
                 file_entry.original_path = src_file.name
                 file_entry.original_filename = ""
-                file_entry.relative_path = relative_path
+                file_entry.relative_file = relative_file
 
                 tar.compress_file(src_file.name, file_entry, archive_file.name)
 
                 with tarfile.open(archive_file.name, 'r:' + compression_type) as tar:
-                    # tar.extract(relative_path)
+                    # tar.extract(relative_file)
                     file_info = tar.next()
                     assert file_info.size == 14
-                    assert file_info.name == relative_path[1:]
+                    assert file_info.name == relative_file[1:]
 
                     assert tar.next() is None
 
@@ -54,19 +54,19 @@ class TestDefaultArchiver(TestCase):
             with tempfile.NamedTemporaryFile() as src_file:
                 self.create_test_file(src_file.name)
 
-                relative_path = "/rel/ative_path"
+                relative_file = "/rel/ative_path"
 
                 file_entry = FileEntryDTO()
                 file_entry.original_path = os.path.split(src_file.name)[0]
                 file_entry.original_filename = os.path.split(src_file.name)[1]
-                file_entry.relative_path = relative_path
+                file_entry.relative_file = relative_file
 
                 tar.compress_files([file_entry], archive_file.name)
 
                 with tempfile.TemporaryDirectory() as dest_dir:
-                    tar.decompress_files(archive_file.name, [file_entry.relative_path], dest_dir)
+                    tar.decompress_files(archive_file.name, [file_entry.relative_file], dest_dir)
 
-                    assert os.stat(dest_dir + os.sep + file_entry.relative_path).st_size == 14
+                    assert os.stat(dest_dir + os.sep + file_entry.relative_file).st_size == 14
 
     def test_archive_package_iter(self):
         with tempfile.NamedTemporaryFile() as archive_file:

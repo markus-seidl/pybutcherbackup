@@ -56,7 +56,8 @@ class TestBackupRestoreController(TestCase):
                     backup_reader = db.read_backup(None)
 
                     for file in src_file_list:
-                        test = backup_reader.find_original_file(file)
+                        relative_file = file[len(bck_params.database_location):]
+                        test = backup_reader.find_relative_file(relative_file)
                         assert test is not None
 
     def test_backup_01(self):

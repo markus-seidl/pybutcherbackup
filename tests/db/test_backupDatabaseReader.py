@@ -68,9 +68,9 @@ class TestBackupDatabaseReader(unittest.TestCase):
             af = bm.all_files
 
             assert len(af) == 3
-            assert dto_file01_diff_01_01.original_file in af  # file created in 1. diff backup
-            assert dto_file01_full_01_01.original_file in af  # file created in 1 full, and not mentioned in 2. diff
-            assert dto_file01_full_02_01.original_file in af  # file created - deleted - created
+            assert dto_file01_diff_01_01.relative_file in af  # file created in 1. diff backup
+            assert dto_file01_full_01_01.relative_file in af  # file created in 1 full, and not mentioned in 2. diff
+            assert dto_file01_full_02_01.relative_file in af  # file created - deleted - created
 
     def create_dummy_file(self, idx) -> FileEntryDTO:
         ret = FileEntryDTO()
@@ -79,7 +79,7 @@ class TestBackupDatabaseReader(unittest.TestCase):
         ret.original_filename = str(idx)
         ret.sha_sum = idx + 512_000
         ret.modified_time = idx
-        ret.relative_path = "/path/"
+        ret.relative_file = "/path/" + str(idx)
         ret.size = idx
 
         return ret

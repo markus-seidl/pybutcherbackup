@@ -126,7 +126,7 @@ class BackupController(BaseController):
                 archive_domain = backup_writer.create_archive(disc_domain)
                 for file_dto in archive_package.file_package:
                     # files must be new / updated. deleted files are filtered and handled later
-                    old_file = backup_reader.find_original_file(file_dto.original_file)
+                    old_file = backup_reader.find_relative_file(file_dto.relative_file)
                     state = FileState.NEW if old_file is None else FileState.UPDATED
                     file_domain = backup_writer.create_file_from_dto(file_dto, state)
                     backup_writer.map_file_to_archive(file_domain, archive_domain)
@@ -143,16 +143,14 @@ class BackupController(BaseController):
             # find out which files where deleted
             for key in backup_reader.all_files:
                 file = backup_reader.all_files[key]
-                fr = file.relative_path
+                fr = file.relative_file
                 if fr in file_filter.filtered_files:
                     pass  # file not changed, don't record it
                 elif fr not in file_filter.handled_files:
                     backup_writer.create_file(
-                        file.original_path,
-                        file.original_filename,
                         file.sha_sum,
                         file.modified_time,
-                        file.relative_path,
+                        file.relative_file,
                         file.size,
                         FileState.DELETED
                     )
@@ -267,9 +265,9 @@ class DirectorySourceLocator(RestoreSourceLocator):
                         all_files[pos_id] = f
 
         found_files = list()
-        for original_file in restore_files:
+        for relative_file in restore_files:
             file, state, archives, backup = backup_reader.find_coordinates(
-                backup_reader.find_original_file(original_file)
+                backup_reader.find_relative_file(relative_file)
             )
 
             found_all = True
@@ -277,9 +275,9 @@ class DirectorySourceLocator(RestoreSourceLocator):
                 found_all = found_all and archive.id in all_files
 
             if found_all:
-                found_files.append(original_file)
+                found_files.append(relative_file)
             else:
-                print(original_file)
+                print(relative_file)
 
         return found_files, all_files
 
@@ -290,9 +288,9 @@ class DirectorySourceLocator(RestoreSourceLocator):
 
 class RestoreController(BaseController):
     class PartialFileInfo:
-        def __init__(self, original_path, count):
+        def __init__(self, relative_file, count):
             self.archive_parts = dict()
-            self.original_path = original_path
+            self.relative_file = relative_file
             self.count = count
 
     def _filter_files(self, backup_reader: BackupDatabaseReader, file_glob):
@@ -302,9 +300,9 @@ class RestoreController(BaseController):
         all_files = backup_reader.all_files
         for key in all_files:
             file = all_files[key]
-            m = regex.match(file.relative_path)
+            m = regex.match(file.relative_file)
             if m:
-                ret.append(file.original_file)
+                ret.append(file.relative_file)
 
         return ret
 
@@ -318,15 +316,15 @@ class RestoreController(BaseController):
         """
         dict_archive = dict()
         for key in available_files:
-            file, _, archives, _ = backup_reader.find_coordinates(backup_reader.find_original_file(key))
+            file, _, archives, _ = backup_reader.find_coordinates(backup_reader.find_relative_file(key))
 
             for archive in archives:
                 if archive.id not in dict_archive:
                     dict_archive[archive.id] = [archive, dict()]
 
                 counts = dict_archive[archive.id][1]
-                original_file = file.original_file
-                counts[original_file] = len(archives)
+                relative_file = file.relative_file
+                counts[relative_file] = len(archives)
 
         return dict_archive
 
@@ -334,11 +332,11 @@ class RestoreController(BaseController):
         return DirectorySourceLocator()
 
     def _convert_to_archive_path(self, params: RestoreParameters, backup_reader: BackupDatabaseReader,
-                                 original_files: [str]) -> [str]:
+                                 relative_files: [str]) -> [str]:
         ret = list()
-        for original_file in original_files:
-            file = backup_reader.find_original_file(original_file)
-            ret.append(file.relative_path)
+        for relative_file in relative_files:
+            file = backup_reader.find_relative_file(relative_file)
+            ret.append(file.relative_file)
 
         return ret
 
@@ -369,44 +367,44 @@ class RestoreController(BaseController):
                 available_files, list_of_archives = source_locator.available_sources(params, backup_reader, restore_files, archive_ext)
                 file_map = self._group_by_archive(backup_reader, available_files)
 
-                for archive_id in file_map:  # ( archive.id, [original_file] )
-                    archive_entry, original_files_count = file_map[archive_id]  # archive, {original_file: part_count}
+                for archive_id in file_map:  # ( archive.id, [relative_file] )
+                    archive_entry, relative_files_count = file_map[archive_id]  # archive, {relative_file: part_count}
 
                     archive_path = list_of_archives[archive_id]
                     # Files can occur in multiple archives, check if this archive is available
                     if os.path.exists(archive_path):
                         relative_files = self._convert_to_archive_path(params, backup_reader,
-                                                                       original_files_count.keys())
+                                                                       relative_files_count.keys())
                         self._decrypt_and_decompress(archive_path, archiver, params, relative_files, encryptor)
 
                         # if the file is a partial file, we need to move it to the temp directory and mark it as such
                         # do not remove it from restore_files, as we need the other parts, before quitting
-                        for original_file in original_files_count:
-                            count = original_files_count[original_file]
+                        for relative_file in relative_files_count:
+                            count = relative_files_count[relative_file]
                             if count > 1:
                                 # these files need special handling, as they have multiple parts
-                                if original_file not in partial_restored_files:
-                                    partial_restored_files[original_file] = \
-                                        RestoreController.PartialFileInfo(original_file, count)
+                                if relative_file not in partial_restored_files:
+                                    partial_restored_files[relative_file] = \
+                                        RestoreController.PartialFileInfo(relative_file, count)
 
-                                prf = partial_restored_files[original_file]
+                                prf = partial_restored_files[relative_file]
                                 tmp_file = tempfile.NamedTemporaryFile()
                                 prf.archive_parts[archive_entry] = tmp_file
 
-                                file = backup_reader.find_original_file(original_file)
-                                shutil.move(params.destination + os.sep + file.relative_path, tmp_file.name)
+                                file = backup_reader.find_relative_file(relative_file)
+                                shutil.move(params.destination + os.sep + file.relative_file, tmp_file.name)
 
-                        for original_file in original_files_count:
-                            count = original_files_count[original_file]
+                        for relative_file in relative_files_count:
+                            count = relative_files_count[relative_file]
 
                             if count == 1:
-                                restore_files.remove(original_file)
+                                restore_files.remove(relative_file)
                             else:
-                                if len(partial_restored_files[original_file].archive_parts) == count:
+                                if len(partial_restored_files[relative_file].archive_parts) == count:
                                     # all parts have been assembled, join file
-                                    self._finish_parts(params, partial_restored_files[original_file],
-                                                       backup_reader.find_original_file(original_file))
-                                    restore_files.remove(original_file)
+                                    self._finish_parts(params, partial_restored_files[relative_file],
+                                                       backup_reader.find_relative_file(relative_file))
+                                    restore_files.remove(relative_file)
 
                 if endless_loop_counter <= 0:
                     raise RuntimeError("Too many iterations while restoring, files left: <%s>" % restore_files)
@@ -430,7 +428,7 @@ class RestoreController(BaseController):
         archives = partial.archive_parts.keys()
         sorted_archives = sorted(archives, key=lambda a: a.id)
 
-        output_file_path = params.destination + os.sep + file.relative_path
+        output_file_path = params.destination + os.sep + file.relative_file
         for archive in sorted_archives:
             tmp_file = partial.archive_parts[archive]
             self._join_files(output_file_path, tmp_file.name)
@@ -461,15 +459,15 @@ class FileFilter:
     def iterator(self):
         br = self._backup_reader
         for file in self._file_iterator:
-            fp = br.find_original_file(file.original_file)
+            fp = br.find_relative_file(file.relative_file)
 
             fs = False
             if fp:
                 fs = fp.sha_sum == file.sha_sum
 
             if fp and fs:
-                self.filtered_files[file.relative_path] = file
+                self.filtered_files[file.relative_file] = file
                 continue
 
-            self.handled_files[file.relative_path] = file
+            self.handled_files[file.relative_file] = file
             yield file

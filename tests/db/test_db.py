@@ -49,11 +49,9 @@ class DomainTest(unittest.TestCase):
     def create_dummy_file(self, idx) -> FileEntryDTO:
         ret = FileEntryDTO()
 
-        ret.original_path = "/original/path/"
-        ret.original_filename = str(idx)
         ret.sha_sum = idx + 512_000
         ret.modified_time = idx
-        ret.relative_path = "/path/"
+        ret.relative_file = "/path/" + str(idx)
         ret.size = idx
 
         return ret

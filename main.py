@@ -77,7 +77,7 @@ def action_list_files(passphrase: str, index: str):
     for original_file in sorted_af_keys:
         file_entry = af[original_file]
         table_data.append([
-            file_entry.relative_path,
+            file_entry.relative_file,
             file_entry.size,
             file_entry.modified_time,
             file_entry.sha_sum

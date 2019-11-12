@@ -31,7 +31,7 @@ class DomainTest(TestCase):
                     original_filename="n01",
                     sha_sum="sha256_01",
                     modified_time=datetime.datetime.now(),
-                    relative_path="r01",
+                    relative_file="r01",
                     size=1,
                     backup=backup
                 )
@@ -41,7 +41,7 @@ class DomainTest(TestCase):
                     original_filename="n02",
                     sha_sum="sha256_02",
                     modified_time=datetime.datetime.now(),
-                    relative_path="r02",
+                    relative_file="r02",
                     size=2,
                     backup=backup
                 )

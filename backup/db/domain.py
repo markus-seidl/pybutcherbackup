@@ -66,17 +66,11 @@ class ArchiveEntry(BaseModel):
 
 @auto_str
 class FileEntry(BaseModel):
-    original_filepath = TextField()
-    original_filename = TextField()
     sha_sum = TextField()
     modified_time = DateTimeField()
     size = IntegerField()
     """Size in bytes"""
-    relative_path = TextField()
-
-    @property
-    def original_file(self):
-        return self.original_filepath + os.sep + self.original_filename
+    relative_file = TextField()
 
 
 @auto_str
