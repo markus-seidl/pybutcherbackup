@@ -5,12 +5,17 @@ import shlex
 import subprocess
 
 import codecs
+import tempfile
 import threading
+
+import multi
 import sys
 import locale
 
 import struct
 from Crypto.Cipher import AES
+
+from backup.core.archive import ArchiveManager, ArchivePackage
 
 
 class Encryptor:
@@ -176,7 +181,7 @@ class GpgEncryptor(Encryptor):
         """
         stderr = codecs.getreader(self._encoding)(process.stderr)
         rr = threading.Thread(target=self._read_response,
-                              args=(stderr, result))
+                          args=(stderr, result))
         rr.setDaemon(True)
         # log.debug('stderr reader: %r', rr)
         rr.start()
@@ -359,3 +364,23 @@ class PyCryptoEncryptor(Encryptor):
                     outfile.write(decryptor.decrypt(chunk))
 
                 outfile.truncate(origsize)
+
+
+class EncryptionManager:
+
+    def __init__(self, archive_iterator: ArchiveManager, encryptor: Encryptor):
+        self.archive_manager = archive_iterator
+        self.encryptor = encryptor
+        self.temp_archive_file = tempfile.NamedTemporaryFile()
+
+    def archive_package_iter(self) -> ArchivePackage:
+
+        if not self.encryptor:
+            for archive_package in self.archive_manager.archive_package_iter():
+                yield archive_package
+        else:
+            for archive_package in self.archive_manager.archive_package_iter():
+                self.encryptor.encrypt_file(archive_package.archive_file, self.temp_archive_file.name)
+                archive_package.archive_file = self.temp_archive_file.name
+
+                yield archive_package

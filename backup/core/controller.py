@@ -8,11 +8,15 @@ from backup.common.logger import configure_logger
 from backup.common.util import copy_with_progress
 from backup.core.luke import LukeFilewalker
 from backup.core.archive import FileBulker, DefaultArchiver, ArchiveManager
-from backup.core.encryptor import GpgEncryptor, Encryptor
+from backup.core.encryptor import GpgEncryptor, Encryptor, EncryptionManager
 from backup.db.db import DatabaseManager, BackupDatabaseReader, BackupType, FileState, ArchiveEntry, FileEntry, \
     DiscEntry
+from backup.multi.archive import ThreadingFileBulker, ThreadingArchiveManager
 from backup.db.disc_id import DiscId
+from backup.multi.threadpool import ThreadPool
 from tqdm import tqdm
+
+from backup.multi.encryptor import ThreadingEncryptionManager
 
 DEFAULT_DATABASE_FILENAME = "index.sqlite"
 
@@ -32,13 +36,14 @@ class BackupParameters:
         self.database_location = "./" + DEFAULT_DATABASE_FILENAME
         self.source = None
         self.destination = None
-        self.calculate_sha = True
         self.single_archive_size = 1024 * 1024 * 1024  # 1 GB
         """Single Archive size in bytes"""
         self.disc_size = 1024 * 1024 * 1024 * 44  # 44 GB
         """Size of one backup disc"""
         self.backup_type = BackupType.INCREMENTAL
         self.encryption_key = None
+        self.use_threading = False
+        self.threads = None
 
 
 class RestoreParameters:
@@ -83,6 +88,7 @@ class BackupController(BaseController):
         encryptor = self._create_encryptor(params)
         db_location = self._find_database(params)
 
+        pool = params.use_threading if None else ThreadPool(params.threads)
         if encryptor and self._valid_database_file(db_location):
             db_tmp_file = tempfile.NamedTemporaryFile()
             encryptor.decrypt_file(db_location, db_tmp_file.name)
@@ -90,22 +96,36 @@ class BackupController(BaseController):
 
         db = DatabaseManager(db_location)
 
-        temp_archive_file = tempfile.NamedTemporaryFile()
-
         disc_directories = list()
         disc_directory = None
         with db.transaction() as txn:
             backup_reader = db.read_backup(None)
+            first_backup = len(backup_reader.all_files) == 0
+
+            calculate_sha = not params.use_threading
+            if not first_backup:
+                calculate_sha = True
+
             file_filter = FileFilter(
                 backup_reader,
-                LukeFilewalker().walk_directory(params.source, params.calculate_sha)
+                LukeFilewalker().walk_directory(params.source, calculate_sha)
             )
             if backup_reader.is_empty:
                 params.backup_type = BackupType.FULL
 
-            file_bulker = FileBulker(file_filter.iterator(), params.single_archive_size)
             archiver = self._create_archiver(params)
-            archive_manager = ArchiveManager(file_bulker, temp_archive_file.name, archiver)
+            if params.use_threading:
+                if first_backup:
+                    # if first backup we can use threading, otherwise sha has to be calculated inside the walker
+                    file_bulker = ThreadingFileBulker(file_filter.iterator(), params.single_archive_size, pool)
+                else:
+                    file_bulker = FileBulker(file_filter.iterator(), params.single_archive_size)
+                archive_manager = ThreadingArchiveManager(file_bulker, archiver, pool)
+                archive_manager = ThreadingEncryptionManager(archive_manager, encryptor, pool)
+            else:
+                file_bulker = FileBulker(file_filter.iterator(), params.single_archive_size)
+                archive_manager = ArchiveManager(file_bulker, archiver)
+                archive_manager = EncryptionManager(archive_manager, encryptor)
 
             backup_writer = db.create_backup(params.backup_type)
 
@@ -132,7 +152,7 @@ class BackupController(BaseController):
                     backup_writer.map_file_to_archive(file_domain, archive_domain)
 
                 archive_name = self._create_archive_name(params, disc_domain, archive_domain)
-                final_archive_name = self._encrypt_and_copy(archive_package, archiver, encryptor, archive_name)
+                final_archive_name = self._copy(archive_package, archiver, encryptor, archive_name)
 
                 self._update_archive(archive_domain, final_archive_name)
                 disc_size += self._get_size(final_archive_name)
@@ -158,25 +178,26 @@ class BackupController(BaseController):
             txn.commit()
 
         db.close_database()
-        temp_archive_file.close()
         self._finish_backup(db, params, disc_directories, encryptor)
 
-    def _encrypt_and_copy(self, archive_package, archiver, encryptor, archive_name):
-        """Encrypt the archive file (if necessary) and copy it to the destination."""
+    def _copy(self, archive_package, archiver, encryptor, archive_name):
+        """Copy it to the destination."""
 
-        # Encrypting the file locally is benifitable, as this reduces network traffic
-        with tempfile.NamedTemporaryFile() as encrypted_file:
-            archive_name += ".%s" % archiver.extension
-            final_archive_name = archive_name
-            src_file = archive_package.archive_file
-            if encryptor is not None:
-                final_archive_name = archive_name + ".%s" % encryptor.extension
-                encryptor.encrypt_file(src_file, encrypted_file.name)
-                src_file = encrypted_file.name
+        assert os.path.exists(archive_package.archive_file)
 
-            with tqdm(total=-1, leave=False, unit='B', unit_scale=True, unit_divisor=1024) as t:
-                t.set_description('Copy archive to destination')
-                copy_with_progress(src_file, final_archive_name, t)
+        archive_name += ".%s" % archiver.extension
+        final_archive_name = archive_name
+        src_file = archive_package.archive_file
+        if encryptor is not None:
+            final_archive_name = archive_name + ".%s" % encryptor.extension
+
+        with tqdm(total=-1, leave=False, unit='B', unit_scale=True, unit_divisor=1024) as t:
+            t.set_description('Copy archive to destination')
+            copy_with_progress(src_file, final_archive_name, t)
+
+        temp_file = getattr(archive_package, "tempfile", None)
+        if temp_file:
+            temp_file.close()  # empty the temporary directory
 
         return final_archive_name
 
@@ -364,7 +385,8 @@ class RestoreController(BaseController):
             partial_restored_files = dict()
             endless_loop_counter = len(restore_files) * 10
             while len(restore_files) > 0:
-                available_files, list_of_archives = source_locator.available_sources(params, backup_reader, restore_files, archive_ext)
+                available_files, list_of_archives = source_locator.available_sources(params, backup_reader,
+                                                                                     restore_files, archive_ext)
                 file_map = self._group_by_archive(backup_reader, available_files)
 
                 for archive_id in file_map:  # ( archive.id, [relative_file] )

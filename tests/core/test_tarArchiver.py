@@ -69,57 +69,52 @@ class TestDefaultArchiver(TestCase):
                     assert os.stat(dest_dir + os.sep + file_entry.relative_file).st_size == 14
 
     def test_archive_package_iter(self):
-        with tempfile.NamedTemporaryFile() as archive_file:
-            with tempfile.TemporaryDirectory() as source_directory:
+        with tempfile.TemporaryDirectory() as source_directory:
 
-                self.create_test_file(source_directory + "/source_1", 2048)
-                self.create_test_file(source_directory + "/source_2", 2048)
-                self.create_test_file(source_directory + "/source_3", 100)
+            self.create_test_file(source_directory + "/source_1", 2048)
+            self.create_test_file(source_directory + "/source_2", 2048)
+            self.create_test_file(source_directory + "/source_3", 100)
 
-                file_walker = LukeFilewalker()
-                file_bulker = FileBulker(file_walker.walk_directory(source_directory), 1024)
+            file_walker = LukeFilewalker()
+            file_bulker = FileBulker(file_walker.walk_directory(source_directory), 1024)
 
-                compression_type = 'bz2'
+            compression_type = 'bz2'
 
-                tar = DefaultArchiver('w:' + compression_type)
-                am = ArchiveManager(file_bulker, archive_file.name, tar)
+            tar = DefaultArchiver('w:' + compression_type)
+            am = ArchiveManager(file_bulker, tar)
 
-                i = 0
-                for backup_package in am.archive_package_iter():
-                    # print(backup_package)
-                    if backup_package.file_package[0].original_filename == "source_1" \
-                            and backup_package.part_number == 0:  # part 1 of source_1
+            i = 0
+            for backup_package in am.archive_package_iter():
+                # print(backup_package)
+                if backup_package.file_package[0].original_filename == "source_1" \
+                        and backup_package.part_number == 0:  # part 1 of source_1
 
-                        assert backup_package.part_number == 0
-                        assert backup_package.file_package[0].size == 2048
-                    elif backup_package.file_package[0].original_filename == "source_1" \
-                            and backup_package.part_number == 1:  # part 2 of source_1
+                    assert backup_package.part_number == 0
+                    assert backup_package.file_package[0].size == 2048
+                elif backup_package.file_package[0].original_filename == "source_1" \
+                        and backup_package.part_number == 1:  # part 2 of source_1
 
-                        assert backup_package.part_number == 1
-                        assert backup_package.file_package[0].size == 2048
-                    elif backup_package.file_package[0].original_filename == "source_2" \
-                            and backup_package.part_number == 0:  # part 1 of source_2
+                    assert backup_package.part_number == 1
+                    assert backup_package.file_package[0].size == 2048
+                elif backup_package.file_package[0].original_filename == "source_2" \
+                        and backup_package.part_number == 0:  # part 1 of source_2
 
-                        assert backup_package.part_number == 0
-                        assert backup_package.file_package[0].size == 2048
-                    elif backup_package.file_package[0].original_filename == "source_2" \
-                            and backup_package.part_number == 1:  # part 2 of source_2
+                    assert backup_package.part_number == 0
+                    assert backup_package.file_package[0].size == 2048
+                elif backup_package.file_package[0].original_filename == "source_2" \
+                        and backup_package.part_number == 1:  # part 2 of source_2
 
-                        assert backup_package.part_number == 1
-                        assert backup_package.file_package[0].size == 2048
-                    elif backup_package.file_package[0].original_filename == "source_3" \
-                            and backup_package.part_number == -1:  # source_3
+                    assert backup_package.part_number == 1
+                    assert backup_package.file_package[0].size == 2048
+                elif backup_package.file_package[0].original_filename == "source_3" \
+                        and backup_package.part_number == -1:  # source_3
 
-                        assert backup_package.part_number == -1
-                        assert backup_package.file_package[0].size == 100
-                    else:
-                        self.fail("Unknown case: " + str(backup_package))
+                    assert backup_package.part_number == -1
+                    assert backup_package.file_package[0].size == 100
+                else:
+                    self.fail("Unknown case: " + str(backup_package))
 
-                    i += 1
-
-            # the archive_package_iter removes the archive file, but the NamedTemporaryFile complains if it
-            # has already been deleted
-            self.create_test_file(archive_file.name, 1)
+                i += 1
 
 
 if __name__ == '__main__':

@@ -18,7 +18,7 @@ class TestArchiver(TestCase):
             file_bulker = Mock()
             file_bulker.max_size = single_size
 
-            a = ArchiveManager(file_bulker, None, Mock())
+            a = ArchiveManager(file_bulker, Mock())
 
             count = 0
             for split in a.split_file(tf.name, 1):
@@ -42,7 +42,7 @@ class TestArchiver(TestCase):
             file_bulker = Mock()
             file_bulker.max_size = single_size
 
-            a = ArchiveManager(file_bulker, None, Mock())
+            a = ArchiveManager(file_bulker, Mock())
 
             count = 0
             for split in a.split_file(tf.name, 1):
