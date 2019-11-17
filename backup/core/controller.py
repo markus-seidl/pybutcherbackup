@@ -18,6 +18,7 @@ from backup.multi.threadpool import ThreadPool
 from tqdm import tqdm
 
 from backup.multi.encryptor import ThreadingEncryptionManager
+from backup.multi.backpressure import BackpressureManager
 
 DEFAULT_DATABASE_FILENAME = "index.sqlite"
 
@@ -114,15 +115,17 @@ class BackupController(BaseController):
                 params.backup_type = BackupType.FULL
 
             archiver = self._create_archiver(params)
+            pressure = None
             if params.use_threading:
-                pool = params.use_threading if None else ThreadPool(params.threads, params.threads / 3)
+                pool = params.use_threading if None else ThreadPool(params.threads)
+                pressure = BackpressureManager(5)
                 if first_backup:
                     # if first backup we can use threading, otherwise sha has to be calculated inside the walker
                     file_bulker = ThreadingFileBulker(file_filter.iterator(), params.single_archive_size, pool)
                 else:
                     file_bulker = FileBulker(file_filter.iterator(), params.single_archive_size)
-                archive_manager = ThreadingArchiveManager(file_bulker, archiver, pool)
-                archive_manager = ThreadingEncryptionManager(archive_manager, encryptor, pool)
+                archive_manager = ThreadingArchiveManager(file_bulker, archiver, pool, pressure)
+                archive_manager = ThreadingEncryptionManager(archive_manager, encryptor, pool, pressure)
             else:
                 file_bulker = FileBulker(file_filter.iterator(), params.single_archive_size)
                 archive_manager = ArchiveManager(file_bulker, archiver)
@@ -153,7 +156,7 @@ class BackupController(BaseController):
                     backup_writer.map_file_to_archive(file_domain, archive_domain)
 
                 archive_name = self._create_archive_name(params, disc_domain, archive_domain)
-                final_archive_name = self._copy(archive_package, archiver, encryptor, archive_name)
+                final_archive_name = self._copy(archive_package, archiver, encryptor, archive_name, pressure)
 
                 self._update_archive(archive_domain, final_archive_name)
                 disc_size += self._get_size(final_archive_name)
@@ -181,7 +184,7 @@ class BackupController(BaseController):
         db.close_database()
         self._finish_backup(db, params, disc_directories, encryptor)
 
-    def _copy(self, archive_package, archiver, encryptor, archive_name):
+    def _copy(self, archive_package, archiver, encryptor, archive_name, pressure: BackpressureManager):
         """Copy it to the destination."""
 
         assert os.path.exists(archive_package.archive_file)
@@ -195,6 +198,7 @@ class BackupController(BaseController):
         with tqdm(total=-1, leave=False, unit='B', unit_scale=True, unit_divisor=1024) as t:
             t.set_description('Copy archive to destination')
             copy_with_progress(src_file, final_archive_name, t)
+            pressure.unregister_pressure()
 
         temp_file = getattr(archive_package, "tempfile", None)
         if temp_file:

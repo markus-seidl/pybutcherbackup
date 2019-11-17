@@ -1,5 +1,4 @@
 import os
-import tarfile
 import dataclasses
 import logging
 from math import ceil
@@ -10,10 +9,10 @@ from backup.core.luke import FileEntryDTO
 from backup.core.archive import FileBulker, DefaultArchiver
 import tempfile
 from backup.multi.threadpool import ThreadPool
-from backup.core.luke import LukeFilewalker
 import hashlib
 
 from backup.common.util import configure_tqdm
+from backup.multi.backpressure import BackpressureManager
 
 logger = configure_logger(logging.getLogger(__name__))
 
@@ -76,11 +75,13 @@ class ArchivePackage:
 
 
 class ThreadingArchiveManager:
-    def __init__(self, file_bulker: FileBulker, archiver: DefaultArchiver, pool: ThreadPool):
+    def __init__(self, file_bulker: FileBulker, archiver: DefaultArchiver, pool: ThreadPool,
+                 pressure: BackpressureManager):
         self.file_bulker = file_bulker
         self.max_size = file_bulker.max_size
         self.archiver = archiver
         self.pool = pool
+        self.pressure = pressure
 
     def archive_package_iter(self) -> ArchivePackage:
         """
@@ -118,15 +119,17 @@ class ThreadingArchiveManager:
 
                     i += 1
             else:
-                # normal package
-                futures.append(self.pool.add_task(self._compress_file, file_package, queue, self.archiver))
-
-                if futures[0].done():
+                while self.pressure.reached() and len(futures) > 0:
                     yield futures[0].result(None)
                     del futures[0]
 
-                if len(futures) >= self.pool.max_depth:
-                    self.pool.wait(futures)
+                # normal package
+                futures.append(self.pool.add_task(self._compress_file, file_package, queue, self.archiver))
+                self.pressure.register_pressure()
+
+                if futures[0].done():  # push already completed packages
+                    yield futures[0].result(None)
+                    del futures[0]
 
         self.pool.wait(futures)
         for q in futures:

@@ -4,14 +4,17 @@ from backup.core.archive import ArchiveManager
 from backup.core.encryptor import Encryptor
 from backup.multi.threadpool import ThreadPool
 from backup.multi.archive import ArchivePackage, ThreadingArchiveManager
+from backup.multi.backpressure import BackpressureManager
 
 
 class ThreadingEncryptionManager:
 
-    def __init__(self, archive_iterator: ThreadingArchiveManager, encryptor: Encryptor, pool: ThreadPool):
+    def __init__(self, archive_iterator: ThreadingArchiveManager, encryptor: Encryptor, pool: ThreadPool,
+                 pressure: BackpressureManager):
         self.archive_manager = archive_iterator
         self.encryptor = encryptor
         self.pool = pool
+        self.pressure = pressure
 
     def archive_package_iter(self) -> ArchivePackage:
 
@@ -22,14 +25,17 @@ class ThreadingEncryptionManager:
             futures = list()
 
             for archive_package in self.archive_manager.archive_package_iter():
+
+                while self.pressure.reached() and len(futures) > 0:
+                    yield futures[0].result(None)
+                    del futures[0]
+
                 futures.append(self.pool.add_task(self._encrypt_file, archive_package, self.encryptor))
+                self.pressure.register_pressure()
 
                 if futures[0].done():
                     yield futures[0].result(None)
                     del futures[0]
-
-                if len(futures) >= self.pool.max_depth:
-                    self.pool.wait(futures)
 
             self.pool.wait(futures)
             for q in futures:
