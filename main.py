@@ -38,12 +38,16 @@ def cli_restore():
 @click.argument('dest', type=click.Path(exists=True))
 @click.option("--index", help='Path to the index to use.', default=None)
 @click.option("--passphrase", help='Passphrase to use on the backup', default=None)
-def action_backup(src: str, dest: str, index: str, passphrase: str):
+@click.option("--threading/--no-threading", help='Use threading if specified, no threading is default '
+                                                 'but will change in the future.', default=False)
+def action_backup(src: str, dest: str, index: str, passphrase: str, threading: bool):
     # Dummy backup code
     bp = BackupParameters()
     bp.source = src
     bp.destination = dest
     bp.encryption_key = passphrase
+    bp.use_threading = threading
+
     if index:
         bp.database_location = index  # TODO path should be relative to source?
 
@@ -99,7 +103,8 @@ def action_list_files(passphrase: str, index: str):
 @click.argument('dest', type=click.Path(exists=True))
 @click.option("--index", help='Path to the index to use.', default=None)
 @click.option("--passphrase", help='Passphrase to use on the backup', default=None)
-@click.option("--filter", help='Regex to filter the restored filepath/name for. Use quotes to escape the string.', default=".*")
+@click.option("--filter", help='Regex to filter the restored filepath/name for. Use quotes to escape the string.',
+              default=".*")
 def action_restore(src: str, dest: str, index: str, passphrase: str, filter: str):
     # input validation
     if filter:
