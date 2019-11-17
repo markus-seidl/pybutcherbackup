@@ -184,6 +184,8 @@ class BackupDatabaseReader:
 
 
 class DatabaseManager:
+    _database_version = 1
+
     # Note that the database manager is static because of the "static" proxy to peewee.database
     def __init__(self, file_name):
         if file_name is None:
@@ -197,8 +199,16 @@ class DatabaseManager:
         return self.database.transaction()
 
     def open_database(self, file_name):
-        self.database.initialize(SqliteDatabase(file_name, pragmas={'foreign_keys': 1}))
+        db = SqliteDatabase(file_name, pragmas={'foreign_keys': 1})
+        self.database.initialize(db)
         self.database.connect()
+
+        version = self.database.execute_sql('PRAGMA user_version').fetchone()
+        if version[0] == 0:
+            self.database.execute_sql("PRAGMA user_version = %i" % self._database_version)
+        elif version[0] != self._database_version:
+            raise "Unknown database version %i" % self._database_version
+
         self.create_tables()
 
     def create_tables(self):
