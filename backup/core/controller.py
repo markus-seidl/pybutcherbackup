@@ -43,7 +43,7 @@ class BackupParameters:
         """Size of one backup disc"""
         self.backup_type = BackupType.INCREMENTAL
         self.encryption_key = None
-        self.use_threading = True
+        self.use_threading = False
         self.threads = multiprocessing.cpu_count()
 
 
@@ -115,17 +115,14 @@ class BackupController(BaseController):
 
             archiver = self._create_archiver(params)
             if params.use_threading:
-                pool_div = 3 if first_backup else 2
-                pool0 = params.use_threading if None else ThreadPool(params.threads / pool_div)
-                pool1 = params.use_threading if None else ThreadPool(params.threads / pool_div)
-                pool2 = params.use_threading if None else ThreadPool(params.threads / pool_div)
+                pool = params.use_threading if None else ThreadPool(params.threads, params.threads / 3)
                 if first_backup:
                     # if first backup we can use threading, otherwise sha has to be calculated inside the walker
-                    file_bulker = ThreadingFileBulker(file_filter.iterator(), params.single_archive_size, pool0)
+                    file_bulker = ThreadingFileBulker(file_filter.iterator(), params.single_archive_size, pool)
                 else:
                     file_bulker = FileBulker(file_filter.iterator(), params.single_archive_size)
-                archive_manager = ThreadingArchiveManager(file_bulker, archiver, pool1)
-                archive_manager = ThreadingEncryptionManager(archive_manager, encryptor, pool2)
+                archive_manager = ThreadingArchiveManager(file_bulker, archiver, pool)
+                archive_manager = ThreadingEncryptionManager(archive_manager, encryptor, pool)
             else:
                 file_bulker = FileBulker(file_filter.iterator(), params.single_archive_size)
                 archive_manager = ArchiveManager(file_bulker, archiver)

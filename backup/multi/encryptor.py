@@ -28,6 +28,9 @@ class ThreadingEncryptionManager:
                     yield futures[0].result(None)
                     del futures[0]
 
+                if len(futures) >= self.pool.max_depth:
+                    self.pool.wait(futures)
+
             self.pool.wait(futures)
             for q in futures:
                 yield q.result(None)
