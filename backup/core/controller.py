@@ -3,6 +3,7 @@ import re
 import tempfile
 import shutil
 import logging
+import multiprocessing
 
 from backup.common.logger import configure_logger
 from backup.common.util import copy_with_progress
@@ -43,7 +44,7 @@ class BackupParameters:
         self.backup_type = BackupType.INCREMENTAL
         self.encryption_key = None
         self.use_threading = False
-        self.threads = None
+        self.threads = multiprocessing.cpu_count() / 2
 
 
 class RestoreParameters:
