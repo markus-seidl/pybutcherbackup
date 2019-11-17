@@ -1,6 +1,5 @@
 import os
 import platform
-import re
 import shlex
 import subprocess
 
@@ -8,7 +7,6 @@ import codecs
 import tempfile
 import threading
 
-import multi
 import sys
 import locale
 
