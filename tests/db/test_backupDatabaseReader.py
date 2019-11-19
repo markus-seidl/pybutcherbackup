@@ -17,14 +17,14 @@ class TestBackupDatabaseReader(unittest.TestCase):
             dto_file01_full_02_01 = self.create_dummy_file(2)
 
             with db_manager.transaction():
-                backup_manager = db_manager.create_backup(BackupType.FULL)
+                backup_manager = db_manager.create_backup(BackupType.FULL, None)
                 # empty FULL backup
 
             time.sleep(0.1)  # this ensures that the diff backup is a few milliseconds older. Helps in sorting backups
 
             # write backup FULL
             with db_manager.transaction():
-                backup_manager = db_manager.create_backup(BackupType.FULL)
+                backup_manager = db_manager.create_backup(BackupType.FULL, None)
 
                 disc01 = backup_manager.create_disc()
 
@@ -42,7 +42,7 @@ class TestBackupDatabaseReader(unittest.TestCase):
 
             # write diff backup
             with db_manager.transaction():
-                backup_manager = db_manager.create_backup(BackupType.INCREMENTAL)
+                backup_manager = db_manager.create_backup(BackupType.INCREMENTAL, None)
 
                 disc01 = backup_manager.create_disc()
 
@@ -56,7 +56,7 @@ class TestBackupDatabaseReader(unittest.TestCase):
 
             # write diff backup
             with db_manager.transaction():
-                backup_manager = db_manager.create_backup(BackupType.INCREMENTAL)
+                backup_manager = db_manager.create_backup(BackupType.INCREMENTAL, None)
 
                 disc01 = backup_manager.create_disc()
 

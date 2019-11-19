@@ -40,13 +40,15 @@ def cli_restore():
 @click.option("--passphrase", help='Passphrase to use on the backup', default=None)
 @click.option("--threading/--no-threading", help='Use threading if specified, no threading is default '
                                                  'but will change in the future.', default=False)
-def action_backup(src: str, dest: str, index: str, passphrase: str, threading: bool):
+@click.option("--name", help="User name for that backup repository", default=None)
+def action_backup(src: str, dest: str, index: str, passphrase: str, threading: bool, backup_name: str):
     # Dummy backup code
     bp = BackupParameters()
     bp.source = src
     bp.destination = dest
     bp.encryption_key = passphrase
     bp.use_threading = threading
+    bp.backup_name = backup_name
 
     if index:
         bp.database_location = index  # TODO path should be relative to source?

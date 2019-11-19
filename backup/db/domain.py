@@ -28,7 +28,7 @@ class BaseModel(Model):
 
 @auto_str
 class BackupsEntry(BaseModel):
-    pass
+    name = TextField(null=True)
 
 
 @auto_str

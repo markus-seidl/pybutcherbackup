@@ -1,3 +1,18 @@
+
+class NopBackpressureManager:
+    def __init__(self):
+        pass
+
+    def register_pressure(self):
+        pass
+
+    def unregister_pressure(self):
+        pass
+
+    def reached(self) -> bool:
+        return False
+
+
 class BackpressureManager:
 
     def __init__(self, max):

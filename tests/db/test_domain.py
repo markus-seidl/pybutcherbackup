@@ -11,7 +11,9 @@ class DomainTest(TestCase):
             db_manager = DatabaseManager(tmp_filename.name)
 
             with db_manager.database.atomic():
-                backups = BackupsEntry.create()
+                backups = BackupsEntry.create(
+                    name="Blah"
+                )
 
                 backup = BackupEntry.create(
                     backups=backups,

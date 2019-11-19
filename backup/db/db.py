@@ -109,39 +109,40 @@ class BackupDatabaseReader:
 
     @staticmethod
     def create_reader_from_backup(backup_root: BackupsEntry, backup_start):
-        backups = list()
-
-        for backup in backup_root.backups.order_by(BackupEntry.created.desc()):
-            backups.append(backup)
-            if backup.type == BackupType.FULL:
-                break
-
-        backups.reverse()
-        # generate full file list
         file_relative_file = dict()
         file_sha = dict()
 
-        # guess records to process
-        total_records = 0
-        for backup in backups:
-            total_records += len(backup.all_files)
+        if backup_root:
+            backups = list()
+            for backup in backup_root.backups.order_by(BackupEntry.created.desc()):
+                backups.append(backup)
+                if backup.type == BackupType.FULL:
+                    break
 
-        with tqdm(total=total_records, leave=False, unit='records') as t:
-            configure_tqdm(t)
-            t.set_description('Reading backup information')
+            backups.reverse()
+            # generate full file list
 
+            # guess records to process
+            total_records = 0
             for backup in backups:
-                for backup_file_map in backup.all_files.select():
-                    f = backup_file_map.file
-                    if backup_file_map.state in (FileState.NEW, FileState.UPDATED):
-                        info = BackupDatabaseReader.FileInfo(
-                            backup_file_map.file, backup_file_map.state, backup
-                        )
-                        file_relative_file[f.relative_file] = info
-                    elif backup_file_map.state == FileState.DELETED:
-                        del file_relative_file[f.relative_file]
+                total_records += len(backup.all_files)
 
-                    t.update(1)
+            with tqdm(total=total_records, leave=False, unit='records') as t:
+                configure_tqdm(t)
+                t.set_description('Reading backup information')
+
+                for backup in backups:
+                    for backup_file_map in backup.all_files.select():
+                        f = backup_file_map.file
+                        if backup_file_map.state in (FileState.NEW, FileState.UPDATED):
+                            info = BackupDatabaseReader.FileInfo(
+                                backup_file_map.file, backup_file_map.state, backup
+                            )
+                            file_relative_file[f.relative_file] = info
+                        elif backup_file_map.state == FileState.DELETED:
+                            del file_relative_file[f.relative_file]
+
+                        t.update(1)
 
         return BackupDatabaseReader(file_relative_file, file_sha)
 
@@ -225,16 +226,19 @@ class DatabaseManager:
     def all_backups(self):
         return BackupEntry.select()
 
-    def backups_root(self) -> BackupsEntry:
+    def backups_root(self, backup_name: str, create=True) -> BackupsEntry:
         s = BackupsEntry.select()
         if len(s) == 0:
-            return BackupsEntry.create()
+            if create:
+                return BackupsEntry.create(name=backup_name)
+            else:
+                return None
         else:
             return s.first()
 
-    def create_backup(self, backup_type: BackupType) -> BackupDatabaseWriter:
+    def create_backup(self, backup_type: BackupType, backup_name: str) -> BackupDatabaseWriter:
         backup = BackupEntry.create(
-            backups=self.backups_root(),
+            backups=self.backups_root(backup_name),
             type=backup_type
         )
 
@@ -246,4 +250,4 @@ class DatabaseManager:
         :param backup: Backup to start from (not implemented), None to start from the latest
         :return:
         """
-        return BackupDatabaseReader.create_reader_from_backup(self.backups_root(), backup)
+        return BackupDatabaseReader.create_reader_from_backup(self.backups_root(None, False), backup)

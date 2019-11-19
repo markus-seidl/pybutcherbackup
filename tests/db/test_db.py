@@ -16,7 +16,7 @@ class DomainTest(unittest.TestCase):
 
             # write backup
             with db_manager.transaction():
-                backup_manager = db_manager.create_backup(BackupType.FULL)
+                backup_manager = db_manager.create_backup(BackupType.FULL, None)
 
                 disc01 = backup_manager.create_disc()
 

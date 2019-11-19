@@ -18,7 +18,7 @@ from backup.multi.threadpool import ThreadPool
 from tqdm import tqdm
 
 from backup.multi.encryptor import ThreadingEncryptionManager
-from backup.multi.backpressure import BackpressureManager
+from backup.multi.backpressure import BackpressureManager, NopBackpressureManager
 
 DEFAULT_DATABASE_FILENAME = "index.sqlite"
 
@@ -46,6 +46,7 @@ class BackupParameters:
         self.encryption_key = None
         self.use_threading = False
         self.threads = multiprocessing.cpu_count()
+        self.backup_name = None  # User identifiable name, only stored with the very first backup
 
 
 class RestoreParameters:
@@ -115,7 +116,7 @@ class BackupController(BaseController):
                 params.backup_type = BackupType.FULL
 
             archiver = self._create_archiver(params)
-            pressure = None
+            pressure = NopBackpressureManager()
             if params.use_threading:
                 pool = params.use_threading if None else ThreadPool(params.threads)
                 pressure = BackpressureManager(5)
@@ -131,7 +132,7 @@ class BackupController(BaseController):
                 archive_manager = ArchiveManager(file_bulker, archiver)
                 archive_manager = EncryptionManager(archive_manager, encryptor)
 
-            backup_writer = db.create_backup(params.backup_type)
+            backup_writer = db.create_backup(params.backup_type, params.backup_name)
 
             disc_domain = None
             disc_size = -1
