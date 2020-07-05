@@ -4,6 +4,7 @@
 * Documentation
 * More functions in restoring/listing/investigating
     * ex: Direct BluRay burning
+    * FUSE file system
 * Bugfixing
     * Database is put in workdir, instead of backup dir
     * "Bug" with PyCharm: Don't use tqdm when running unit tests (or make it disableable)
