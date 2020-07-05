@@ -39,7 +39,8 @@ def cli_restore():
 @click.option("--index", help='Path to the index to use.', default=None)
 @click.option("--passphrase", help='Passphrase to use on the backup', default=None)
 @click.option("--threading/--no-threading", help='Use threading if specified, no threading is default '
-                                                 'but will change in the future.', default=False)
+                                                 'but will change in the future. '
+                                                 'Currently threading is *experimental*.', default=False)
 @click.option("--name", help="User name for that backup repository", default=None)
 def action_backup(src: str, dest: str, index: str, passphrase: str, threading: bool, name: str):
     # Dummy backup code

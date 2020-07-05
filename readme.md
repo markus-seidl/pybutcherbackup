@@ -14,7 +14,7 @@ Additionally the techniques used to encrypt and store the data should be "simple
 software is lost in the future (no one knows the future), the user is able to restore the files using bash
 and common apps. Currently only bash, tar, bz2 and gnupg (if encrypted) is needed. Sqlite is optional. 
 
-# Workflow
+# Workflow / Concept
 
 Works in the following steps
 
@@ -37,9 +37,9 @@ Works in the following steps
 ## From source
 
 ```bash
-git clone ...
+git clone https://github.com/markus-seidl/pybutcherbackup.git
 pip install -r requirements
-python main.py ...
+python main.py #see usage below#
 ```
 
 ## Using docker
@@ -52,12 +52,17 @@ docker run -it -v <path-to-src>:/src -v <path-to-dest>:/dest augunrik/pybutcherb
 
 ## Backup
 
-````bash
-python main.py backup <src> <dest> --passphrase "password"
-````
+```bash
+python main.py backup #src# #dest# --passphrase "password"
+```
 
 ## Restore
 
-````bash
-python main.py restore <src> <dest> --passphrase "password"
-````
+```bash
+python main.py restore #src# #dest# --passphrase "password"
+```
+
+# Restore by hand
+
+PyButcherBackup is designed so, that you could restore every backup with a bit of bash magic and standard unix tools (tar, gpg, cat, gzip/bzip, sqlite).
+
