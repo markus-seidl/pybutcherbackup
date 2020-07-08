@@ -21,6 +21,17 @@ def set_slient():
 set_tqdm()
 
 
+def set_pg_type(new_type):
+    if new_type == 'simple':
+        set_simple()
+    elif new_type == 'tqdm':
+        set_tqdm()
+    elif new_type == 'silent':
+        set_slient()
+
+    raise ValueError("Unknown " + (new_type or 'unset?'))
+
+
 def create_pg(desc=None, total=None, leave=True, unit='it', unit_scale=False, unit_divisor=1000):
     global TYPE
     if TYPE == 'simple':

@@ -6,7 +6,7 @@ import re
 
 import click
 
-from core.parameters import GeneralSettings, BackupParameters, RestoreParameters
+from backup.core.parameters import GeneralSettings, BackupParameters, RestoreParameters
 from backup.core.controller import BackupController
 from backup.core.controller import RestoreController
 from backup.core.encryptor import GpgEncryptor
@@ -14,6 +14,7 @@ from backup.common.logger import configure_logger
 from backup.db.db import DatabaseManager
 
 from backup.terminal.table import Table, TableColumn
+from backup.common.progressbar import set_pg_type
 
 logger = configure_logger(logging.getLogger(__name__))
 
@@ -42,8 +43,8 @@ def cli_restore():
                                                  'but will change in the future. '
                                                  'Currently threading is *experimental*.', default=False)
 @click.option("--name", help="User name for that backup repository", default=None)
-def action_backup(src: str, dest: str, index: str, passphrase: str, threading: bool, name: str):
-    # Dummy backup code
+@click.option("--terminal", help="Switch the progress type between SIMPLE, SILENT and TQDM", default="TQDM")
+def action_backup(src: str, dest: str, index: str, passphrase: str, threading: bool, name: str, terminal: str):
     bp = BackupParameters()
     bp.source = src
     bp.destination = dest
@@ -53,6 +54,8 @@ def action_backup(src: str, dest: str, index: str, passphrase: str, threading: b
 
     if index:
         bp.database_location = index  # TODO path should be relative to source?
+
+    set_pg_type(terminal)
 
     bc = BackupController(GeneralSettings())
     bc.execute(bp)
@@ -108,7 +111,8 @@ def action_list_files(passphrase: str, index: str):
 @click.option("--passphrase", help='Passphrase to use on the backup', default=None)
 @click.option("--filter", help='Regex to filter the restored filepath/name for. Use quotes to escape the string.',
               default=".*")
-def action_restore(src: str, dest: str, index: str, passphrase: str, filter: str):
+@click.option("--terminal", help="Switch the progress type between SIMPLE, SILENT and TQDM", default="TQDM")
+def action_restore(src: str, dest: str, index: str, passphrase: str, filter: str, terminal: str):
     # input validation
     if filter:
         regex = re.compile(filter)  # if this fails, regex is incorrect
@@ -124,6 +128,8 @@ def action_restore(src: str, dest: str, index: str, passphrase: str, filter: str
     rp.restore_glob = filter
     if index:
         rp.database_location = index
+
+    set_pg_type(terminal)
 
     rc = RestoreController(GeneralSettings())
     rc.execute(rp)
