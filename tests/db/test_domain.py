@@ -3,9 +3,10 @@ from unittest import TestCase, main
 
 from backup.db.domain import *
 from backup.db.db import DatabaseManager
+from common.customtestcase import CustomTestCase
 
 
-class DomainTest(TestCase):
+class DomainTest(CustomTestCase):
     def test_basic_store_load(self):
         with tempfile.NamedTemporaryFile() as tmp_filename:
             db_manager = DatabaseManager(tmp_filename.name)

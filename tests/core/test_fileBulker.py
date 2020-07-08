@@ -2,9 +2,10 @@ from unittest import TestCase, main
 
 from backup.core.archive import FileBulker
 from backup.core.luke import FileEntryDTO
+from common.customtestcase import CustomTestCase
 
 
-class TestFileBulker(TestCase):
+class TestFileBulker(CustomTestCase):
     def test_file_package_iter(self):
         files = list()
 

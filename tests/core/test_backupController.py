@@ -1,10 +1,11 @@
 from unittest import TestCase
 from backup.core.controller import *
 from backup.common.dircompare import DirCompare
+from backup.core.parameters import GeneralSettings, BackupParameters, RestoreParameters
+from common.customtestcase import CustomTestCase
 
 
-class TestBackupRestoreController(TestCase):
-
+class TestBackupRestoreController(CustomTestCase):
     def create_test_file(self, name, first_line_content, size=1024):
         with open(name, 'w') as temp:
             temp.write("%i" % first_line_content)

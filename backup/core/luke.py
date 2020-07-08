@@ -4,10 +4,10 @@ import os
 import logging
 
 from typing import List
-from tqdm import tqdm
 
 from backup.common.logger import configure_logger
-from backup.common.util import calculate_file_hash, configure_tqdm
+from backup.common.util import calculate_file_hash
+from backup.common.progressbar import create_pg
 
 logger = configure_logger(logging.getLogger(__name__))
 
@@ -48,9 +48,8 @@ class LukeFilewalker:
         with open(filename, "rb") as f:
             # Read and update hash string value in blocks of 4K
             block_size = 4096
-            with tqdm(total=file_size, leave=False, unit='B', unit_scale=True, unit_divisor=1024) as t:
-                configure_tqdm(t)
-                t.set_description('Calculate hash')
+            with create_pg(total=file_size, leave=False, unit='B', unit_scale=True, unit_divisor=1024,
+                           desc='Calculate hash') as t:
                 t.set_postfix(file=filename)
 
                 for byte_block in iter(lambda: f.read(block_size), b""):
@@ -70,10 +69,7 @@ class LukeFilewalker:
     def count_files(self, directory: str) -> int:
         count = 0
 
-        with tqdm(total=None, leave=False, unit='files') as t:
-            configure_tqdm(t)
-            t.set_description('Counting files')
-
+        with create_pg(total=None, leave=False, unit='files', desc='Counting files') as t:
             for _, _, files in os.walk(directory):
                 for _ in files:
                     count += 1
@@ -88,9 +84,8 @@ class LukeFilewalker:
         if self.absolute_progress:
             file_count = self.count_files(directory)
 
-        with tqdm(total=file_count, leave=False, unit='files') as t:
-            configure_tqdm(t)
-            t.set_description('Processing source files')
+        # with tqdm(total=file_count, leave=False, unit='files') as t:
+        with create_pg(total=file_count, leave=False, unit='files', desc='Processing source files') as t:
             for subdir, file in self.file_generator(directory):
                 f = os.path.join(subdir, file)
 

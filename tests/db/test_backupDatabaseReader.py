@@ -5,9 +5,10 @@ import time
 from backup.db.domain import *
 from backup.db.db import DatabaseManager, BackupType
 from backup.core.luke import FileEntryDTO
+from common.customtestcase import CustomTestCase
 
 
-class TestBackupDatabaseReader(unittest.TestCase):
+class TestBackupDatabaseReader(CustomTestCase):
 
     def test_basic_operation(self):
         with tempfile.NamedTemporaryFile() as tmp_filename:

@@ -4,12 +4,11 @@ import dataclasses
 import logging
 from math import ceil
 
-from tqdm import tqdm
 from backup.common.logger import configure_logger
 from backup.core.luke import FileEntryDTO
 import tempfile
 
-from backup.common.util import configure_tqdm
+from backup.common.progressbar import create_pg
 
 logger = configure_logger(logging.getLogger(__name__))
 
@@ -72,11 +71,8 @@ class DefaultArchiver:
 
     def compress_files(self, input_files: [FileEntryDTO], output_archive):
         with tarfile.open(output_archive, self.open_spec) as tar:
-            with tqdm(input_files, leave=False, unit='file') as t:
-                configure_tqdm(t)
-                t.set_description('Compressing files')
-
-                for file in t:
+            with create_pg(total=len(input_files), leave=False, unit='file', desc='Compressing files') as t:
+                for file in input_files:
                     src_path = file.original_file
                     bck_path = file.relative_file
 
@@ -132,10 +128,7 @@ class ArchiveManager:
                 parts = int(ceil(file.size / self.max_size))
 
                 i = 0
-                with tqdm(total=parts, unit='part', leave=False) as t:
-                    configure_tqdm(t)
-                    t.set_description('Compressing part')
-
+                with create_pg(total=parts, unit='part', leave=False, desc='Compressing part') as t:
                     for split_file in self.split_file(file.original_file):
                         t.set_postfix(file=file.relative_file)
                         t.unpause()
@@ -156,10 +149,8 @@ class ArchiveManager:
         determined by the buffer size.
         """
         file_size = os.stat(input_file).st_size
-        with tqdm(total=file_size, leave=False, unit='B', unit_scale=True, unit_divisor=1024) as t:
-            configure_tqdm(t)
-            t.set_description('Splitting file')
-
+        with create_pg(total=file_size, leave=False, unit='B', unit_scale=True, unit_divisor=1024,
+                       desc='Splitting file') as t:
             with open(input_file, 'rb') as src:
                 while True:
                     with tempfile.NamedTemporaryFile() as f:

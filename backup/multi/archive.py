@@ -3,7 +3,6 @@ import dataclasses
 import logging
 from math import ceil
 
-from tqdm import tqdm
 from backup.common.logger import configure_logger
 from backup.core.luke import FileEntryDTO
 from backup.core.archive import FileBulker, DefaultArchiver
@@ -11,8 +10,8 @@ import tempfile
 from backup.multi.threadpool import ThreadPool
 import hashlib
 
-from backup.common.util import configure_tqdm
 from backup.multi.backpressure import BackpressureManager
+from backup.common.progressbar import create_pg
 
 logger = configure_logger(logging.getLogger(__name__))
 
@@ -151,9 +150,8 @@ class ThreadingArchiveManager:
         determined by the buffer size.
         """
         file_size = os.stat(input_file).st_size
-        with tqdm(total=file_size, leave=False, unit='B', unit_scale=True, unit_divisor=1024) as t:
-            configure_tqdm(t)
-            t.set_description('Splitting file')
+        with create_pg(total=file_size, leave=False, unit='B', unit_scale=True, unit_divisor=1024,
+                       desc='Splitting file') as t:
 
             with open(input_file, 'rb') as src:
                 while True:

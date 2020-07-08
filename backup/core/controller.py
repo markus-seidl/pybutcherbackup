@@ -3,7 +3,6 @@ import re
 import tempfile
 import shutil
 import logging
-import multiprocessing
 
 from backup.common.logger import configure_logger
 from backup.common.util import copy_with_progress
@@ -15,50 +14,22 @@ from backup.db.db import DatabaseManager, BackupDatabaseReader, BackupType, File
 from backup.multi.archive import ThreadingFileBulker, ThreadingArchiveManager
 from backup.db.disc_id import DiscId
 from backup.multi.threadpool import ThreadPool
-from tqdm import tqdm
 
 from backup.multi.encryptor import ThreadingEncryptionManager
 from backup.multi.backpressure import BackpressureManager, NopBackpressureManager
-
-DEFAULT_DATABASE_FILENAME = "index.sqlite"
+from backup.core.parameters import GeneralSettings, BackupParameters, RestoreParameters
+from backup.common.progressbar import create_pg
 
 logger = configure_logger(logging.getLogger(__name__))
 
 NUMBER_TO_FILE_FORMAT = "%010i"
 
 
-class GeneralSettings:
-    def __init__(self):
-        self.database_name = DEFAULT_DATABASE_FILENAME
-        self.index_filename = "disc_id.yml"
-
-
-class BackupParameters:
-    def __init__(self):
-        self.database_location = "./" + DEFAULT_DATABASE_FILENAME
-        self.source = None
-        self.destination = None
-        self.single_archive_size = 1024 * 1024 * 1024  # 1 GB
-        """Single Archive size in bytes"""
-        self.disc_size = 1024 * 1024 * 1024 * 44  # 44 GB
-        """Size of one backup disc"""
-        self.backup_type = BackupType.INCREMENTAL
-        self.encryption_key = None
-        self.use_threading = False
-        self.threads = multiprocessing.cpu_count()
-        self.backup_name = None  # User identifiable name, only stored with the very first backup
-
-
-class RestoreParameters:
-    def __init__(self):
-        self.database_location = "./" + DEFAULT_DATABASE_FILENAME
-        self.source = None
-        self.destination = None
-        self.encryption_key = None
-        self.restore_glob = ".*"
-
-
 class BaseController:
+    """
+    Base class for restore and backup controllers
+    """
+
     def __init__(self, general_settings: GeneralSettings):
         self.general_settings = general_settings
 
@@ -132,7 +103,7 @@ class BackupController(BaseController):
                 archive_manager = ArchiveManager(file_bulker, archiver)
                 archive_manager = EncryptionManager(archive_manager, encryptor)
 
-            backup_writer = db.create_backup(params.backup_type, params.backup_name)
+            backup_db_writer = db.create_backup(params.backup_type, params.backup_name)
 
             disc_domain = None
             disc_size = -1
@@ -143,18 +114,18 @@ class BackupController(BaseController):
                         self._finish_disc(params, disc_directory, disc_domain)
 
                     # create new disc
-                    disc_domain = backup_writer.create_disc()
+                    disc_domain = backup_db_writer.create_disc()
                     disc_directory = self._create_disc_dir(params, disc_domain)
                     disc_directories.append(disc_directory)
                     disc_size = 0
 
-                archive_domain = backup_writer.create_archive(disc_domain)
+                archive_domain = backup_db_writer.create_archive(disc_domain)
                 for file_dto in archive_package.file_package:
                     # files must be new / updated. deleted files are filtered and handled later
                     old_file = backup_reader.find_relative_file(file_dto.relative_file)
                     state = FileState.NEW if old_file is None else FileState.UPDATED
-                    file_domain = backup_writer.create_file_from_dto(file_dto, state)
-                    backup_writer.map_file_to_archive(file_domain, archive_domain)
+                    file_domain = backup_db_writer.create_file_from_dto(file_dto, state)
+                    backup_db_writer.map_file_to_archive(file_domain, archive_domain)
 
                 archive_name = self._create_archive_name(params, disc_domain, archive_domain)
                 final_archive_name = self._copy(archive_package, archiver, encryptor, archive_name, pressure)
@@ -172,7 +143,7 @@ class BackupController(BaseController):
                 if fr in file_filter.filtered_files:
                     pass  # file not changed, don't record it
                 elif fr not in file_filter.handled_files:
-                    backup_writer.create_file(
+                    backup_db_writer.create_file(
                         file.sha_sum,
                         file.modified_time,
                         file.relative_file,
@@ -196,8 +167,8 @@ class BackupController(BaseController):
         if encryptor is not None:
             final_archive_name = archive_name + ".%s" % encryptor.extension
 
-        with tqdm(total=-1, leave=False, unit='B', unit_scale=True, unit_divisor=1024) as t:
-            t.set_description('Copy archive to destination')
+        with create_pg(total=-1, leave=False, unit='B', unit_scale=True, unit_divisor=1024,
+                       desc='Copy archive to destination') as t:
             copy_with_progress(src_file, final_archive_name, t)
             pressure.unregister_pressure()
 
@@ -250,6 +221,11 @@ class BackupController(BaseController):
 
 
 class RestoreSourceLocator:
+    """
+    Base class for all restore locators. They answer the question what archives are available and return the files that
+    could potentially be restored.
+    """
+
     def available_sources(self, params: RestoreParameters, backup_reader: BackupDatabaseReader,
                           restore_files: [str], ext) -> [str]:
         raise RuntimeError("Implement me")
@@ -261,7 +237,8 @@ class RestoreSourceLocator:
 
 class DirectorySourceLocator(RestoreSourceLocator):
 
-    def _create_disc_name(self, parameters, disc_domain):  # TODO this is duplicated to backupcontroller, rename to path
+    def _create_disc_name(self, parameters, disc_domain):
+        # TODO this is duplicated to backupcontroller, rename to path
         return parameters.source + os.sep + NUMBER_TO_FILE_FORMAT % disc_domain.id
 
     def _create_archive_name(self, parameters, disc_domain, archive_domain, ext):
@@ -278,7 +255,7 @@ class DirectorySourceLocator(RestoreSourceLocator):
 
     def available_sources(self, params: RestoreParameters, backup_reader: BackupDatabaseReader, restore_files: [str],
                           ext) -> [str]:
-        """Every archive file name is like an ID. Try to find it in the specified directory or subdirectories."""
+        # Every archive file name is like an ID. Try to find it in the specified directory or subdirectories.
 
         all_files = dict()
         for subdir, dirs, files in os.walk(params.source):

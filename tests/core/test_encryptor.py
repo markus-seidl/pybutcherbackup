@@ -2,9 +2,10 @@ import os
 import tempfile
 from unittest import TestCase
 from backup.core.encryptor import PyCryptoEncryptor, GpgEncryptor
+from common.customtestcase import CustomTestCase
 
 
-class TestPyCryptoEncryptor(TestCase):
+class TestPyCryptoEncryptor(CustomTestCase):
     def create_test_file(self, name, size=14):
         with open(name, 'w') as temp:
             for i in range(size):
@@ -27,7 +28,7 @@ class TestPyCryptoEncryptor(TestCase):
                         assert 'aaaaaaaaaaaaaaaaaaaa' == f.readline()
 
 
-class TestGpgEncryptor(TestCase):
+class TestGpgEncryptor(CustomTestCase):
     def create_test_file(self, name, size=14):
         with open(name, 'w') as temp:
             for i in range(size):

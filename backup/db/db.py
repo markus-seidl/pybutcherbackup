@@ -1,13 +1,12 @@
 import os
 
 from peewee import SqliteDatabase
-from tqdm import tqdm
 
 from backup.db.domain import *
 from enum import Enum
 
 from backup.core.luke import FileEntryDTO
-from backup.common.util import configure_tqdm
+from backup.common.progressbar import create_pg
 
 
 class BackupDatabaseWriter:
@@ -127,10 +126,7 @@ class BackupDatabaseReader:
             for backup in backups:
                 total_records += len(backup.all_files)
 
-            with tqdm(total=total_records, leave=False, unit='records') as t:
-                configure_tqdm(t)
-                t.set_description('Reading backup information')
-
+            with create_pg(total=total_records, leave=False, unit='records', desc='Reading backup information') as t:
                 for backup in backups:
                     for backup_file_map in backup.all_files.select():
                         f = backup_file_map.file

@@ -45,7 +45,7 @@ python main.py #see usage below#
 ## Using docker
 
 ```bash
-docker run -it -v <path-to-src>:/src -v <path-to-dest>:/dest augunrik/pybutcherbackup backup /src /dest
+docker run -it -v <path-to-src>:/src -v <path-to-dest>:/dest augunrik/pybutcherbackup backup /src file:///dest
 ```
 
 # Example
@@ -65,4 +65,14 @@ python main.py restore #src# #dest# --passphrase "password"
 # Restore by hand
 
 PyButcherBackup is designed so, that you could restore every backup with a bit of bash magic and standard unix tools (tar, gpg, cat, gzip/bzip, sqlite).
+
+# Documentation
+
+## Destination Types
+
+### file://
+
+### bluray://
+
+### tape://
 

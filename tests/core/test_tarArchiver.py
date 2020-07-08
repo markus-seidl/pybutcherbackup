@@ -5,9 +5,10 @@ from unittest import TestCase, main
 from unittest.mock import Mock
 from backup.core.archive import ArchiveManager, DefaultArchiver, FileBulker
 from backup.core.luke import FileEntryDTO, LukeFilewalker
+from common.customtestcase import CustomTestCase
 
 
-class TestDefaultArchiver(TestCase):
+class TestDefaultArchiver(CustomTestCase):
     def create_test_file(self, name, size=14):
         with open(name, 'w') as temp:
             for i in range(size):

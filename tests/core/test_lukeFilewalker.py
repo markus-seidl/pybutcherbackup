@@ -2,9 +2,14 @@ from unittest import TestCase, main
 import tempfile
 
 from backup.core.luke import LukeFilewalker
+from common.customtestcase import CustomTestCase
 
 
-class TestLukeFilewalker(TestCase):
+class TestLukeFilewalker(CustomTestCase):
+
+    def setUp(self):
+        from backup.common.progressbar import set_simple
+        set_simple()
 
     def create_test_file(self, name):
         with open(name, 'w') as temp:

@@ -4,9 +4,10 @@ import unittest
 from backup.db.domain import *
 from backup.db.db import DatabaseManager, BackupType
 from backup.core.luke import FileEntryDTO
+from common.customtestcase import CustomTestCase
 
 
-class DomainTest(unittest.TestCase):
+class DomainTest(CustomTestCase):
     def test_process_write(self):
         with tempfile.NamedTemporaryFile() as tmp_filename:
             db_manager = DatabaseManager(tmp_filename.name)
