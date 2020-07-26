@@ -70,7 +70,7 @@ PyButcherBackup is designed so, that you could restore every backup with a bit o
 
 ## Destination Types
 
-### file://
+### dir://
 
 ### bluray://
 

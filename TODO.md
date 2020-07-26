@@ -22,3 +22,7 @@
 
 * ~~Rework name resolution in XXXController (naming strategy for dirs and archives)~~
     * should be done with storage controllers 
+
+* Bug: If a backup exactly needs 2 Discs, a third disc would be created as the backup process doesn't know that there isn't any more files to store (and possibly where to put the index.db)
+* Maybe: Used libarchive?
+

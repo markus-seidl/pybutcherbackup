@@ -39,6 +39,13 @@ def calculate_file_hash(filename):
         return sha256_hash.hexdigest()
 
 
+def try_parse_int(value):
+    try:
+        return int(value), True
+    except ValueError:
+        return value, False
+
+
 def copy_with_progress(src_file: str, dest_file: str, t: ProgressBar, length=16 * 1024):
     t.total = os.stat(src_file).st_size
 

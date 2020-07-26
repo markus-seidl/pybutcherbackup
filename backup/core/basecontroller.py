@@ -19,6 +19,7 @@ from backup.multi.encryptor import ThreadingEncryptionManager
 from backup.multi.backpressure import BackpressureManager, NopBackpressureManager
 from backup.core.parameters import GeneralSettings, BackupParameters, RestoreParameters
 from backup.common.progressbar import create_pg
+from backup.storage.directory import DirectoryStorageController, DirectoryStorageBackupParameters
 
 logger = configure_logger(logging.getLogger(__name__))
 
@@ -59,6 +60,7 @@ class BaseController:
 
 class BackupController(BaseController):
     def execute(self, params: BackupParameters):
+        # Init/decrypt database
         encryptor = self._create_encryptor(params)
         db_location = self._find_database(params)
 
@@ -69,72 +71,35 @@ class BackupController(BaseController):
 
         db = DatabaseManager(db_location)
 
-        disc_directories = list()
-        disc_directory = None
         with db.transaction() as txn:
             backup_reader = db.read_backup(None)
             first_backup = len(backup_reader.all_files) == 0
 
-            calculate_sha = not params.use_threading
-            if not first_backup:
-                calculate_sha = True
-
-            file_filter = FileFilter(
-                backup_reader,
-                LukeFilewalker().walk_directory(params.source, calculate_sha)
-            )
-            if backup_reader.is_empty:
-                params.backup_type = BackupType.FULL
-
-            archiver = self._create_archiver(params)
-            pressure = NopBackpressureManager()
-            if params.use_threading:
-                pool = params.use_threading if None else ThreadPool(params.threads)
-                pressure = BackpressureManager(5)
-                if first_backup:
-                    # if first backup we can use threading, otherwise sha has to be calculated inside the walker
-                    file_bulker = ThreadingFileBulker(file_filter.iterator(), params.single_archive_size, pool)
-                else:
-                    file_bulker = FileBulker(file_filter.iterator(), params.single_archive_size)
-                archive_manager = ThreadingArchiveManager(file_bulker, archiver, pool, pressure)
-                archive_manager = ThreadingEncryptionManager(archive_manager, encryptor, pool, pressure)
-            else:
-                file_bulker = FileBulker(file_filter.iterator(), params.single_archive_size)
-                archive_manager = ArchiveManager(file_bulker, archiver)
-                archive_manager = EncryptionManager(archive_manager, encryptor)
-
-            backup_db_writer = db.create_backup(params.backup_type, params.backup_name)
+            archive_manager, archiver, backup_db_writer, file_filter, pressure, storage \
+                = self._factory(backup_reader, db, encryptor, first_backup, params)
 
             disc_domain = None
-            disc_size = -1
             for archive_package in archive_manager.archive_package_iter():
-                if disc_size >= params.disc_size or disc_domain is None:
+                if storage.next_medium_needed() or disc_domain is None:
                     if disc_domain is not None:  # if there is no entity, it's the first iteration
-                        # finish previous disc
-                        self._finish_disc(params, disc_directory, disc_domain)
+                        storage.finish_medium(params, disc_domain)  # finish previous disc
 
                     # create new disc
                     disc_domain = backup_db_writer.create_disc()
-                    disc_directory = self._create_disc_dir(params, disc_domain)
-                    disc_directories.append(disc_directory)
-                    disc_size = 0
+                    storage.create_next_medium(disc_domain)
 
                 archive_domain = backup_db_writer.create_archive(disc_domain)
-                for file_dto in archive_package.file_package:
-                    # files must be new / updated. deleted files are filtered and handled later
-                    old_file = backup_reader.find_relative_file(file_dto.relative_file)
-                    state = FileState.NEW if old_file is None else FileState.UPDATED
-                    file_domain = backup_db_writer.create_file_from_dto(file_dto, state)
-                    backup_db_writer.map_file_to_archive(file_domain, archive_domain)
+                self._update_archive_domain_from_package(archive_domain, archive_package, backup_db_writer,
+                                                         backup_reader)
 
-                archive_name = self._create_archive_name(params, disc_domain, archive_domain)
-                final_archive_name = self._copy(archive_package, archiver, encryptor, archive_name, pressure)
+                archive_package.final_file_extension = archiver.extension
+                if encryptor is not None:
+                    archive_package.final_file_extension += ".%s" % encryptor.extension
 
-                self._update_archive(archive_domain, final_archive_name)
-                disc_size += self._get_size(final_archive_name)
+                storage.store_archive(archive_package, disc_domain, archive_domain, pressure)
 
             if disc_domain is not None:  # finish last disc
-                self._finish_disc(params, disc_directory, disc_domain)
+                storage.finish_medium(params, disc_domain)  # -> storagecontroller
 
             # find out which files where deleted
             for key in backup_reader.all_files:
@@ -154,140 +119,50 @@ class BackupController(BaseController):
             txn.commit()
 
         db.close_database()
-        self._finish_backup(db, params, disc_directories, encryptor)
+        storage.finish_backup(db, params, encryptor)
 
-    def _copy(self, archive_package, archiver, encryptor, archive_name, pressure: BackpressureManager):
-        """Copy it to the destination."""
-
-        assert os.path.exists(archive_package.archive_file)
-
-        archive_name += ".%s" % archiver.extension
-        final_archive_name = archive_name
-        src_file = archive_package.archive_file
-        if encryptor is not None:
-            final_archive_name = archive_name + ".%s" % encryptor.extension
-
-        with create_pg(total=-1, leave=False, unit='B', unit_scale=True, unit_divisor=1024,
-                       desc='Copy archive to destination') as t:
-            copy_with_progress(src_file, final_archive_name, t)
-            pressure.unregister_pressure()
-
-        temp_file = getattr(archive_package, "tempfile", None)
-        if temp_file:
-            temp_file.close()  # empty the temporary directory
-
-        return final_archive_name
-
-    def _update_archive(self, archive_domain, final_archive_name):
-        base_name = os.path.basename(final_archive_name)
-        archive_domain.name = base_name
-        archive_domain.save()
-
-    def _get_size(self, file):
-        return os.stat(file).st_size
-
-    def _create_disc_name(self, parameters, disc_domain):
-        return parameters.destination + os.sep + NUMBER_TO_FILE_FORMAT % disc_domain.id
-
-    def _create_archive_name(self, parameters, disc_domain, archive_domain):
-        d = self._create_disc_name(parameters, disc_domain)
-        return d + os.sep + NUMBER_TO_FILE_FORMAT % archive_domain.id
-
-    def _create_disc_dir(self, parameters, disc_domain):
-        disc_dir = self._create_disc_name(parameters, disc_domain)
-        os.mkdir(disc_dir)
-        return disc_dir
-
-    def _finish_disc(self, parameters, disc_directory: str, disc_domain: DiscEntry):
-        out_file = disc_directory + os.sep + self.general_settings.index_filename
-        DiscId(disc_domain.id).serialize(out_file)
-
-    def _finish_backup(self, db: DatabaseManager, params: BackupParameters, disc_dirs: list, encryptor: GpgEncryptor):
-        db_file = db.file_name
-
-        ext = ""
-        db_tmp_file = None
-        if encryptor:
-            db_tmp_file = tempfile.NamedTemporaryFile()
-            encryptor.encrypt_file(db_file, db_tmp_file.name)
-            db_file = db_tmp_file.name
-            ext = "." + encryptor.extension
-
-        for disc in disc_dirs:
-            shutil.copy(db_file, disc + os.sep + self.general_settings.database_name + ext)
-
-        if db_tmp_file:
-            db_tmp_file.close()
-
-
-class RestoreSourceLocator:
-    """
-    Base class for all restore locators. They answer the question what archives are available and return the files that
-    could potentially be restored.
-    """
-
-    def available_sources(self, params: RestoreParameters, backup_reader: BackupDatabaseReader,
-                          restore_files: [str], ext) -> [str]:
-        raise RuntimeError("Implement me")
-
-    def find_archive(self, params: RestoreParameters, backup_reader: BackupDatabaseReader, archive: ArchiveEntry, ext) \
-            -> str:
-        raise RuntimeError("Implement me")
-
-
-class DirectorySourceLocator(RestoreSourceLocator):
-
-    def _create_disc_name(self, parameters, disc_domain):
-        # TODO this is duplicated to backupcontroller, rename to path
-        return parameters.source + os.sep + NUMBER_TO_FILE_FORMAT % disc_domain.id
-
-    def _create_archive_name(self, parameters, disc_domain, archive_domain, ext):
-        # TODO this is duplicated to backupcontroller, rename to path
-        d = self._create_disc_name(parameters, disc_domain)
-        return d + os.sep + NUMBER_TO_FILE_FORMAT % archive_domain.id + (".%s" % ext)
-
-    @staticmethod
-    def try_parse_int(value):
-        try:
-            return int(value), True
-        except ValueError:
-            return value, False
-
-    def available_sources(self, params: RestoreParameters, backup_reader: BackupDatabaseReader, restore_files: [str],
-                          ext) -> [str]:
-        # Every archive file name is like an ID. Try to find it in the specified directory or subdirectories.
-
-        all_files = dict()
-        for subdir, dirs, files in os.walk(params.source):
-            for file in files:
-                if file.endswith(ext):
-                    # extract id from file name
-                    pos_id, could_parse = self.try_parse_int(file[:-len(ext) - 1])
-
-                    if could_parse:
-                        f = os.path.join(subdir, file)
-                        all_files[pos_id] = f
-
-        found_files = list()
-        for relative_file in restore_files:
-            file, state, archives, backup = backup_reader.find_coordinates(
-                backup_reader.find_relative_file(relative_file)
-            )
-
-            found_all = True
-            for archive in archives:
-                found_all = found_all and archive.id in all_files
-
-            if found_all:
-                found_files.append(relative_file)
+    def _factory(self, backup_reader, db, encryptor, first_backup, params):
+        """Create all needed instances for the backup process"""
+        calculate_sha = not params.use_threading
+        if not first_backup:
+            calculate_sha = True
+        file_filter = FileFilter(
+            backup_reader,
+            LukeFilewalker().walk_directory(params.source, calculate_sha)
+        )
+        if backup_reader.is_empty:
+            params.backup_type = BackupType.FULL
+        archiver = self._create_archiver(params)
+        pressure = NopBackpressureManager()
+        if params.use_threading:
+            pool = params.use_threading if None else ThreadPool(params.threads)
+            pressure = BackpressureManager(5)
+            if first_backup:
+                # if first backup we can use threading, otherwise sha has to be calculated inside the walker
+                file_bulker = ThreadingFileBulker(file_filter.iterator(), params.single_archive_size, pool)
             else:
-                print(relative_file)
+                file_bulker = FileBulker(file_filter.iterator(), params.single_archive_size)
+            archive_manager = ThreadingArchiveManager(file_bulker, archiver, pool, pressure)
+            archive_manager = ThreadingEncryptionManager(archive_manager, encryptor, pool, pressure)
+        else:
+            file_bulker = FileBulker(file_filter.iterator(), params.single_archive_size)
+            archive_manager = ArchiveManager(file_bulker, archiver)
+            archive_manager = EncryptionManager(archive_manager, encryptor)
+        backup_db_writer = db.create_backup(params.backup_type, params.backup_name)
+        # TODO remove, needs to be given in from the outside
+        params.backup_parameters = DirectoryStorageBackupParameters()
+        # TODO create parameters and pass it
+        storage = DirectoryStorageController().start_backup(params, self.general_settings)
+        return archive_manager, archiver, backup_db_writer, file_filter, pressure, storage
 
-        return found_files, all_files
-
-    def find_archive(self, params: RestoreParameters, backup_reader: BackupDatabaseReader, archive: ArchiveEntry, ext) \
-            -> str:
-        return self._create_archive_name(params, archive.disc, archive, ext)
+    def _update_archive_domain_from_package(self, archive_domain, archive_package, backup_db_writer, backup_reader):
+        """Maps files from the archive package to the domain (db)."""
+        for file_dto in archive_package.file_package:
+            # files must be new / updated. deleted files are filtered and handled later
+            old_file = backup_reader.find_relative_file(file_dto.relative_file)
+            state = FileState.NEW if old_file is None else FileState.UPDATED
+            file_domain = backup_db_writer.create_file_from_dto(file_dto, state)
+            backup_db_writer.map_file_to_archive(file_domain, archive_domain)
 
 
 class RestoreController(BaseController):
@@ -332,8 +207,8 @@ class RestoreController(BaseController):
 
         return dict_archive
 
-    def _create_source_locator(self, params: RestoreParameters) -> RestoreSourceLocator:
-        return DirectorySourceLocator()
+    # def _create_source_locator(self, params: RestoreParameters) -> RestoreSourceLocator:
+    #     return DirectorySourceLocator()
 
     def _convert_to_archive_path(self, params: RestoreParameters, backup_reader: BackupDatabaseReader,
                                  relative_files: [str]) -> [str]:
@@ -345,6 +220,7 @@ class RestoreController(BaseController):
         return ret
 
     def execute(self, params: RestoreParameters):
+        # Init / decrypt database
         encryptor = self._create_encryptor(params)
 
         db_location = self._find_database(params)
@@ -355,21 +231,29 @@ class RestoreController(BaseController):
 
         db = DatabaseManager(db_location)
 
+        # TODO remove, needs to be given in from the outside
+        params.backup_parameters = DirectoryStorageBackupParameters()
+        # TODO create parameters and pass it
+        storage = DirectoryStorageController().start_restore(self.general_settings, params)
+        # source_locator = self._create_source_locator(params)
+
         with db.transaction() as txn:
             backup_reader = db.read_backup(None)
 
             restore_files = self._filter_files(backup_reader, params.restore_glob)
-            source_locator = self._create_source_locator(params)
             archiver = self._create_archiver(params)
             archive_ext = archiver.extension
             if encryptor:
                 archive_ext = archive_ext + ".%s" % encryptor.extension
 
+            # TODO:
+            # Make sure that if a file is in multiple archives, that all available other files are restored first. Why?
+            # Because the file (1:n) could cause a volume/tape change and a change back to restore the other files.
+
             partial_restored_files = dict()
             endless_loop_counter = len(restore_files) * 10
             while len(restore_files) > 0:
-                available_files, list_of_archives = source_locator.available_sources(params, backup_reader,
-                                                                                     restore_files, archive_ext)
+                available_files, list_of_archives = storage.available_sources(backup_reader, restore_files, archive_ext)
                 file_map = self._group_by_archive(backup_reader, available_files)
 
                 for archive_id in file_map:  # ( archive.id, [relative_file] )
@@ -380,7 +264,8 @@ class RestoreController(BaseController):
                     if os.path.exists(archive_path):
                         relative_files = self._convert_to_archive_path(params, backup_reader,
                                                                        relative_files_count.keys())
-                        self._decrypt_and_decompress(archive_path, archiver, params, relative_files, encryptor)
+                        self._decrypt_and_decompress(archive_path, archiver, params, relative_files,
+                                                     encryptor)  # -> storagecontroller??
 
                         # if the file is a partial file, we need to move it to the temp directory and mark it as such
                         # do not remove it from restore_files, as we need the other parts, before quitting

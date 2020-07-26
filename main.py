@@ -7,8 +7,8 @@ import re
 import click
 
 from backup.core.parameters import GeneralSettings, BackupParameters, RestoreParameters
-from backup.core.controller import BackupController
-from backup.core.controller import RestoreController
+from backup.core.basecontroller import BackupController
+from backup.core.basecontroller import RestoreController
 from backup.core.encryptor import GpgEncryptor
 from backup.common.logger import configure_logger
 from backup.db.db import DatabaseManager

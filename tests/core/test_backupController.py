@@ -1,7 +1,9 @@
 from unittest import TestCase
-from backup.core.controller import *
+import os, tempfile
 from backup.common.dircompare import DirCompare
+from backup.core.basecontroller import BackupController, RestoreController
 from backup.core.parameters import GeneralSettings, BackupParameters, RestoreParameters
+from backup.db.db import DatabaseManager
 from common.customtestcase import CustomTestCase
 
 

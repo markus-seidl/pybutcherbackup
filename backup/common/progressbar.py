@@ -1,7 +1,7 @@
 import tqdm
 
 TYPE = None  # set below
-
+CURRENT_LEVEL = 0
 
 def set_simple():
     global TYPE
@@ -64,20 +64,26 @@ class ProgressBar:
 
 class ProgressBarSimple(ProgressBar):
     def __init__(self, desc, total, leave, unit, unit_scale, unit_divisor):
+        global CURRENT_LEVEL
         self.desc = desc or ''
         self.total = total or -1
         self.leave = leave
         self.unit = unit
         self.unit_scale = unit_scale
         self.unit_divisor = unit_divisor
-
+        self.indentation_level = CURRENT_LEVEL
+        CURRENT_LEVEL += 1
+        self.indentation_str = "\t" * self.indentation_level
         self.current = 0
 
     def update(self, value):
         # TODO redirect to log
         self.current += value
-        print("%s: %i/%i" % (self.desc, self.current, self.total))
+        print("%s%s: %i/%i" % (self.indentation_str, self.desc, self.current, self.total))
 
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        global CURRENT_LEVEL
+        CURRENT_LEVEL -= 1
 
 class ProgressBarTqdm(ProgressBar):
     def __init__(self, desc, total, leave, unit, unit_scale, unit_divisor):
