@@ -100,6 +100,7 @@ class DefaultArchiver:
 @dataclasses.dataclass
 class ArchivePackage:
     file_package: [FileEntryDTO]
+    file_extension: str
     archive_file: str
     part_number: int = -1
 
@@ -119,6 +120,7 @@ class ArchiveManager:
             * path to the archive file
             * number of the split package, or -1 if there is no source file split
         """
+        ext = self.archiver.extension
         for file_package in self.file_bulker.file_package_iter():
             if len(file_package) == 1 and file_package[0].size > self.max_size:
                 # split file
@@ -134,14 +136,14 @@ class ArchiveManager:
                         t.unpause()
                         self.archiver.compress_file(split_file, file, self.temp_archive_file)
                         t.update(1)
-                        yield ArchivePackage(file_package, self.temp_archive_file, i)
+                        yield ArchivePackage(file_package, ext, self.temp_archive_file, i)
 
                     i += 1
 
             else:
                 # normal package
                 self.archiver.compress_files(file_package, self.temp_archive_file)
-                yield ArchivePackage(file_package, self.temp_archive_file, -1)
+                yield ArchivePackage(file_package, ext, self.temp_archive_file, -1)
 
     def split_file(self, input_file, buffer=1024) -> str:
         """

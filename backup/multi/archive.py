@@ -68,6 +68,7 @@ class ThreadingFileBulker(FileBulker):
 @dataclasses.dataclass
 class ArchivePackage:
     file_package: [FileEntryDTO]
+    file_extension: str
     archive_file: str
     tempfile: tempfile.NamedTemporaryFile
     part_number: int = -1
@@ -93,6 +94,7 @@ class ThreadingArchiveManager:
 
         queue = list()
         futures = list()
+        ext = self.archiver.extension
 
         for file_package in self.file_bulker.file_package_iter():
             if len(file_package) == 1 and file_package[0].size > self.max_size:
@@ -114,7 +116,7 @@ class ThreadingArchiveManager:
                 for split_file in self.split_file(file.original_file):
                     temp_file = tempfile.NamedTemporaryFile()
                     self.archiver.compress_file(split_file, file, temp_file.name)
-                    yield ArchivePackage(file_package, temp_file.name, temp_file, i)
+                    yield ArchivePackage(file_package, ext, temp_file.name, temp_file, i)
 
                     i += 1
             else:
@@ -136,10 +138,10 @@ class ThreadingArchiveManager:
             del q
 
     @staticmethod
-    def _compress_file(file_package, queue, archiver):
+    def _compress_file(file_package, queue, archiver: DefaultArchiver):
         temp_file = tempfile.NamedTemporaryFile()
         archiver.compress_files(file_package, temp_file.name)
-        dto = ArchivePackage(file_package, temp_file.name, temp_file, -1)
+        dto = ArchivePackage(file_package, archiver.extension, temp_file.name, temp_file, -1)
         queue.append(dto)
 
         return dto

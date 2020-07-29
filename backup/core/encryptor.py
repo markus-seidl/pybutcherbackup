@@ -17,6 +17,7 @@ from backup.core.archive import ArchiveManager, ArchivePackage
 
 
 class Encryptor:
+    """'Abstract' base class for all encryption related tasks."""
     def encrypt_file(self, in_filename, out_filename):
         pass
 
@@ -380,5 +381,5 @@ class EncryptionManager:
             for archive_package in self.archive_manager.archive_package_iter():
                 self.encryptor.encrypt_file(archive_package.archive_file, self.temp_archive_file.name)
                 archive_package.archive_file = self.temp_archive_file.name
-
+                archive_package.file_extension += "." + self.encryptor.extension
                 yield archive_package

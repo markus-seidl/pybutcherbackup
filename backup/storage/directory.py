@@ -152,7 +152,7 @@ class BackupDirectoryRestoreController(BaseRestoreStorageController):
 
     def find_archive(self, params: RestoreParameters, backup_reader: BackupDatabaseReader, archive: ArchiveEntry, ext) \
             -> str:
-        return _create_archive_name(params, archive.disc, archive, ext)
+        return _create_archive_name(params, archive.disc, archive)
 
 
 class DirectoryStorageController(BaseStorageController):

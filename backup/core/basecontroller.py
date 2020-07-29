@@ -92,9 +92,7 @@ class BackupController(BaseController):
                 self._update_archive_domain_from_package(archive_domain, archive_package, backup_db_writer,
                                                          backup_reader)
 
-                archive_package.final_file_extension = archiver.extension
-                if encryptor is not None:
-                    archive_package.final_file_extension += ".%s" % encryptor.extension
+                archive_package.final_file_extension = archive_package.file_extension
 
                 storage.store_archive(archive_package, disc_domain, archive_domain, pressure)
 

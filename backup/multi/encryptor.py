@@ -43,12 +43,13 @@ class ThreadingEncryptionManager:
                 del q
 
     @staticmethod
-    def _encrypt_file(archive_package, encryptor):
+    def _encrypt_file(archive_package: ArchivePackage, encryptor: Encryptor):
         temp_file = tempfile.NamedTemporaryFile()
         encryptor.encrypt_file(archive_package.archive_file, temp_file.name)
 
         archive_package.archive_file = temp_file.name
         archive_package.tempfile.close()
         archive_package.tempfile = temp_file
+
 
         return archive_package
