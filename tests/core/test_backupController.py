@@ -4,7 +4,7 @@ from backup.common.dircompare import DirCompare
 from backup.core.basecontroller import BackupController, RestoreController
 from backup.core.parameters import GeneralSettings, BackupParameters, RestoreParameters
 from backup.db.db import DatabaseManager
-from common.customtestcase import CustomTestCase
+from tests.common.customtestcase import CustomTestCase
 
 
 class TestBackupRestoreController(CustomTestCase):

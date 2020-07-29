@@ -2,7 +2,7 @@ from unittest import TestCase, main
 import tempfile
 
 from backup.core.luke import LukeFilewalker
-from common.customtestcase import CustomTestCase
+from tests.common.customtestcase import CustomTestCase
 
 
 class TestLukeFilewalker(CustomTestCase):

@@ -4,7 +4,7 @@ import unittest
 from backup.db.domain import *
 from backup.db.db import DatabaseManager, BackupType
 from backup.core.luke import FileEntryDTO
-from common.customtestcase import CustomTestCase
+from tests.common.customtestcase import CustomTestCase
 
 
 class DomainTest(CustomTestCase):

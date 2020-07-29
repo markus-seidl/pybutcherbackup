@@ -3,7 +3,7 @@ from unittest import TestCase, main
 
 from backup.db.domain import *
 from backup.db.db import DatabaseManager
-from common.customtestcase import CustomTestCase
+from tests.common.customtestcase import CustomTestCase
 
 
 class DomainTest(CustomTestCase):

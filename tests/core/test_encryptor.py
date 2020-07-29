@@ -2,7 +2,7 @@ import os
 import tempfile
 from unittest import TestCase
 from backup.core.encryptor import PyCryptoEncryptor, GpgEncryptor
-from common.customtestcase import CustomTestCase
+from tests.common.customtestcase import CustomTestCase
 
 
 class TestPyCryptoEncryptor(CustomTestCase):

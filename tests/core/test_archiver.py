@@ -3,7 +3,7 @@ import tempfile
 from unittest import TestCase, main
 from unittest.mock import Mock
 from backup.core.archive import ArchiveManager, FileBulker, DefaultArchiver
-from common.customtestcase import CustomTestCase
+from tests.common.customtestcase import CustomTestCase
 
 
 class TestArchiver(CustomTestCase):

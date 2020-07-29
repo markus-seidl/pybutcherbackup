@@ -5,7 +5,7 @@ from unittest import TestCase, main
 from unittest.mock import Mock
 from backup.core.archive import ArchiveManager, DefaultArchiver, FileBulker
 from backup.core.luke import FileEntryDTO, LukeFilewalker
-from common.customtestcase import CustomTestCase
+from tests.common.customtestcase import CustomTestCase
 
 
 class TestDefaultArchiver(CustomTestCase):

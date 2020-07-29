@@ -7,7 +7,7 @@ from backup.db.domain import *
 from backup.db.db import DatabaseManager, BackupType
 from backup.core.luke import FileEntryDTO
 from backup.multi.archive import ThreadingArchiveManager
-from common.customtestcase import CustomTestCase
+from tests.common.customtestcase import CustomTestCase
 
 
 class TestThreadingArchiveManager(CustomTestCase):

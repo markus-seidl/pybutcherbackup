@@ -2,7 +2,7 @@ import tempfile
 from unittest import TestCase
 
 from backup.db.db import DatabaseManager
-from common.customtestcase import CustomTestCase
+from tests.common.customtestcase import CustomTestCase
 
 
 class TestDatabaseManager(CustomTestCase):

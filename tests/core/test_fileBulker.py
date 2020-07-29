@@ -2,7 +2,7 @@ from unittest import TestCase, main
 
 from backup.core.archive import FileBulker
 from backup.core.luke import FileEntryDTO
-from common.customtestcase import CustomTestCase
+from tests.common.customtestcase import CustomTestCase
 
 
 class TestFileBulker(CustomTestCase):
