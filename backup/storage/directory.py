@@ -46,6 +46,7 @@ class BackupDirectoryStorageController(BaseBackupStorageController):
         super(BackupDirectoryStorageController, self).__init__()
         self._current_medium_size = 0
         self._parameters = parameters
+        parameters.backup_parameters = parameters.backup_parameters or DirectoryStorageBackupParameters()  # TODO remove
         self._general_settings = general_settings
         self._hook_helper = HookHelper(general_settings)
         self.disc_directories = list()
