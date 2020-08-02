@@ -22,6 +22,7 @@ set_tqdm()
 
 
 def set_pg_type(new_type):
+    new_type = str(new_type).lower()
     if new_type == 'simple':
         set_simple()
     elif new_type == 'tqdm':
