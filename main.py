@@ -58,7 +58,7 @@ def action_backup(src: str, dest: str, index: str, passphrase: str, threading: b
     if str(dest).startswith('dir://'):
         dest = dest[len('dir://'):]
         dp = DirectoryStorageBackupParameters()
-        dp.medium_size = dir_medium_size
+        dp.medium_size = dir_medium_size * 1024 * 1024 * 1024
         bp.backup_parameters = dp
 
     bp.destination = dest
