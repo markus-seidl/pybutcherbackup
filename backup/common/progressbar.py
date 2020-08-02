@@ -29,8 +29,8 @@ def set_pg_type(new_type):
         set_tqdm()
     elif new_type == 'silent':
         set_slient()
-
-    raise ValueError("Unknown " + (new_type or 'unset?'))
+    else:
+        raise ValueError("Unknown " + (new_type or 'unset?'))
 
 
 def create_pg(desc=None, total=None, leave=True, unit='it', unit_scale=False, unit_divisor=1000):
@@ -41,8 +41,8 @@ def create_pg(desc=None, total=None, leave=True, unit='it', unit_scale=False, un
         return ProgressBarTqdm(desc, total, leave, unit, unit_scale, unit_divisor)
     elif TYPE == 'silent':
         return ProgressBar()
-
-    raise ValueError("Unknown " + (TYPE or 'unset?'))
+    else:
+        raise ValueError("Unknown " + (TYPE or 'unset?'))
 
 
 class ProgressBar:
