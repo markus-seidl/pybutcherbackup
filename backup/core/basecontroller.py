@@ -136,7 +136,7 @@ class BackupController(BaseController):
             pool = params.use_threading if None else ThreadPool(params.threads)
             pressure = BackpressureManager(5)
             if first_backup:
-                # if first backup we can use threading, otherwise sha has to be calculated inside the walker
+                # if first backup we can use threading, otherwise sha has to be calculated inside the walker TODO check how to solve.
                 file_bulker = ThreadingFileBulker(file_filter.iterator(), params.single_archive_size, pool)
             else:
                 file_bulker = FileBulker(file_filter.iterator(), params.single_archive_size)
