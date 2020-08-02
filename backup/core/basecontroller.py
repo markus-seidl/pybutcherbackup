@@ -147,8 +147,6 @@ class BackupController(BaseController):
             archive_manager = ArchiveManager(file_bulker, archiver)
             archive_manager = EncryptionManager(archive_manager, encryptor)
         backup_db_writer = db.create_backup(params.backup_type, params.backup_name)
-        # TODO remove, needs to be given in from the outside
-        params.backup_parameters = DirectoryStorageBackupParameters()
         # TODO create parameters and pass it
         storage = DirectoryStorageController().start_backup(params, self.general_settings)
         return archive_manager, archiver, backup_db_writer, file_filter, pressure, storage
