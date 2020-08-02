@@ -86,6 +86,7 @@ class Shell:
             if len(data) == 0:
                 break
             chunks.append(data)
+            print(str(data))  # TODO DEBUG - remove
             # log.debug("Read %4d bytes" % len(data))
 
         # Join using b'' or '', as appropriate
@@ -133,6 +134,7 @@ class Shell:
             if len(line) == 0:
                 break
             lines.append(line)
+            print(line)  # TODO DEBUG - remove
             line = line.rstrip()
 
         result.stderr = ''.join(lines)

@@ -47,8 +47,9 @@ def cli_restore():
 @click.option("--terminal", help="Switch the progress type between SIMPLE, SILENT and TQDM",
               type=click.Choice(['SIMPLE', 'SILENT', 'TQDM']), case_sensitive=False, default="TQDM")
 @click.option("--dir-medium-size", help="Maximum size of a medium directory in GB", type=int, default=44)
+@click.option("--dummy", help="Internal Helper - do not use", type=bool, default=False)
 def action_backup(src: str, dest: str, index: str, passphrase: str, threading: bool, name: str, terminal: str,
-                  dir_medium_size: int):
+                  dir_medium_size: int, dummy: bool):
     bp = BackupParameters()
     bp.source = src
     bp.encryption_key = passphrase
@@ -68,7 +69,9 @@ def action_backup(src: str, dest: str, index: str, passphrase: str, threading: b
 
     set_pg_type(terminal)
 
-    bc = BackupController(GeneralSettings())
+    g = GeneralSettings()
+    g.dummy = dummy
+    bc = BackupController(g)
     bc.execute(bp)
 
 

@@ -63,6 +63,12 @@ class BackupDirectoryStorageController(BaseBackupStorageController):
         out_file = self.disc_directory + os.sep + self._general_settings.index_filename
         DiscId(disc_domain.id).serialize(out_file)
 
+        self._hook_helper.execute_hook("finish_medium", [_create_disc_name(parameters, disc_domain)])
+
+        # TODO REMOVE
+        if self._general_settings.dummy:
+            input("Insert next medium - waiting")
+
     def store_archive(self, archive_package, disc_domain, archive_domain, pressure):
         super(BackupDirectoryStorageController, self).store_archive(archive_package, disc_domain, archive_domain,
                                                                     pressure)

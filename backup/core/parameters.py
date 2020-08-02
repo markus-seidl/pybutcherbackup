@@ -10,6 +10,7 @@ class GeneralSettings:
         self.database_name = DEFAULT_DATABASE_FILENAME
         self.index_filename = "disc_id.yml"
         self.hook_dir = "./hooks/"
+        self.dummy = False
 
 
 class BackupParameters:
