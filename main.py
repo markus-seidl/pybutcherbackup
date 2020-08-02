@@ -44,8 +44,7 @@ def cli_restore():
                                                  'but will change in the future. '
                                                  'Currently threading is *experimental*.', default=False)
 @click.option("--name", help="User name for that backup repository", default=None)
-@click.option("--terminal", help="Switch the progress type between SIMPLE, SILENT and TQDM",
-              type=click.Choice(['SIMPLE', 'SILENT', 'TQDM']), default="TQDM")
+@click.option("--terminal", help="Switch the progress type between SIMPLE, SILENT and TQDM", default="tqdm")
 @click.option("--dir-medium-size", help="Maximum size of a medium directory in GB", type=int, default=44)
 @click.option("--dummy", help="Internal Helper - do not use", type=bool, default=False)
 def action_backup(src: str, dest: str, index: str, passphrase: str, threading: bool, name: str, terminal: str,
