@@ -17,8 +17,10 @@
     * GnuGPG (encryption) takes time and also just uses 1 core
 * Test on arm64
 * Test inside docker
+    * Specially tape support (would this work somehow?)
 * Should thumbnails be generated and stored? Because 70k files already have a 20m database
 * More feedback (or any at all) while restoring
+* Store sha512 of each created archive inside the database to check if the backup file is the correct one and allow the user to override the check (try to restore corrupt files)
 
 * ~~Rework name resolution in XXXController (naming strategy for dirs and archives)~~
     * should be done with storage controllers 

@@ -9,6 +9,7 @@ class GeneralSettings:
     def __init__(self):
         self.database_name = DEFAULT_DATABASE_FILENAME
         self.index_filename = "disc_id.yml"
+        self.hook_dir = "./hooks/"
 
 
 class BackupParameters:

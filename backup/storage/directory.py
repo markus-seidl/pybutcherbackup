@@ -2,6 +2,7 @@ import os
 import tempfile
 import shutil
 
+from backup.common.hookhelper import HookHelper
 from backup.common.progressbar import create_pg
 from backup.common.util import copy_with_progress, try_parse_int
 from backup.core.encryptor import GpgEncryptor
@@ -46,6 +47,7 @@ class BackupDirectoryStorageController(BaseBackupStorageController):
         self._current_medium_size = 0
         self._parameters = parameters
         self._general_settings = general_settings
+        self._hook_helper = HookHelper(general_settings)
         self.disc_directories = list()
         self.disc_directory = None
 
@@ -117,6 +119,7 @@ class BackupDirectoryRestoreController(BaseRestoreStorageController):
     def __init__(self, general_settings: GeneralSettings, parameters: RestoreParameters):
         self._parameters = parameters
         self._general_settings = general_settings
+        self._hook_helper = HookHelper(general_settings)
 
     def available_sources(self, backup_reader: BackupDatabaseReader, restore_files: [str],
                           ext) -> [str]:

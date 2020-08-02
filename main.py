@@ -12,6 +12,7 @@ from backup.core.basecontroller import RestoreController
 from backup.core.encryptor import GpgEncryptor
 from backup.common.logger import configure_logger
 from backup.db.db import DatabaseManager
+from backup.storage.directory import DirectoryStorageBackupParameters
 
 from backup.terminal.table import Table, TableColumn
 from backup.common.progressbar import set_pg_type
@@ -43,14 +44,24 @@ def cli_restore():
                                                  'but will change in the future. '
                                                  'Currently threading is *experimental*.', default=False)
 @click.option("--name", help="User name for that backup repository", default=None)
-@click.option("--terminal", help="Switch the progress type between SIMPLE, SILENT and TQDM", default="TQDM")
-def action_backup(src: str, dest: str, index: str, passphrase: str, threading: bool, name: str, terminal: str):
+@click.option("--terminal", help="Switch the progress type between SIMPLE, SILENT and TQDM",
+              type=click.Choice(['SIMPLE', 'SILENT', 'TQDM']), case_sensitive=False, default="TQDM")
+@click.option("--dir-medium-size", help="Maximum size of a medium directory in GB", type=int, default=44)
+def action_backup(src: str, dest: str, index: str, passphrase: str, threading: bool, name: str, terminal: str,
+                  dir_medium_size: int):
     bp = BackupParameters()
     bp.source = src
-    bp.destination = dest
     bp.encryption_key = passphrase
     bp.use_threading = threading
     bp.backup_name = name
+
+    if str(dest).startswith('dir://'):
+        dest = dest[len('dir://'):]
+        dp = DirectoryStorageBackupParameters()
+        dp.medium_size = dir_medium_size
+        bp.backup_parameters = dp
+
+    bp.destination = dest
 
     if index:
         bp.database_location = index  # TODO path should be relative to source?

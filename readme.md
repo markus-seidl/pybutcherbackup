@@ -72,7 +72,14 @@ PyButcherBackup is designed so, that you could restore every backup with a bit o
 
 ### dir://
 
+Stores everything inside the given directory. Creates subdirectories named 00001, 00002, etc. for each medium size.
+
+This backup type allows hooks after all internal tasks have been run. See useages of hookhelper.py#execute_hook 
+
 ### bluray://
+
+TODO
 
 ### tape://
 
+TODO
