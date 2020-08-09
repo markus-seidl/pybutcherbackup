@@ -1,4 +1,7 @@
 
+* It's horrible slow
+    * better algorithms (compression, etc.)
+    * Cpython replacements for performance critical code
 * More and finer log output
 * Documentation
 * More functions in restoring/listing/investigating

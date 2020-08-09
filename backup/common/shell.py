@@ -134,7 +134,7 @@ class Shell:
             if len(line) == 0:
                 break
             lines.append(line)
-            print(line)  # TODO DEBUG - remove
+            # print(line)  # TODO DEBUG - remove
             line = line.rstrip()
 
         result.stderr = ''.join(lines)
